@@ -1,6 +1,6 @@
 {
   "format_version": 1,
-  "source_revision": "519c7b74fe17a860c05659738a989b8c2f4d53b4",
+  "source_revision": "0b12bb866f960468391156d8261b262609fcaf2a",
   "files": {
     ".gitattributes": "241f5229d9e9402019052c9acbe8f264f23eaa463158ea3d4b03bfebc05198fe",
     ".gitignore": "0772be692a18d666cd6b83e6eef7ee221f1ff801497096075d41a6bd4084470b",
@@ -169,7 +169,7 @@
     "public/channel-editor/gateway-session.js": "4464b7d8d04d7512461d9e0eeed9934f11767a33bf0e1b656b899c2a54616bd7",
     "public/channel-editor/model-picker.js": "9b8412b38a03d8a7f0a53215def98ce17100060a59dc3bcefa1213af73ba518a",
     "public/channel-editor/state.js": "4a19ebf5806bc6b2ee633ff9a5c5a48705b207fe76c661424b7ec5385250da34",
-    "public/index.html": "fd4fc61be18482a21f197b9f6f5a741c168d1f3b4a149cc6a4df01ad42c1c3b2",
+    "public/index.html": "60b0dd946abeff2ca5f3b6437c6cbaa85f2143ae02411796a69cc91d7addc9e0",
     "public/motai-mark.svg": "99d59d5aa3dbc40ac944278c33d6a05833d262c55a35e52fac1daafe7bb1a870",
     "public/shared/model-list.js": "f13ed577b8a00ce6ff97d884f9290a743566d5e4f5fc9301bc202d28660eedec",
     "public/styles.css": "186f65add5d012f2f2d2d4e4e4cb42baf68fae96790d965348969cd210227415",
