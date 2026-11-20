@@ -1,0 +1,133 @@
+{
+  "format_version": 1,
+  "patches": [
+    {
+      "id": "0001-live-cooldown",
+      "path": "patches/new-api-v1.0.0-rc.25-live-cooldown-20261025.patch",
+      "sha256": "2f06fb2ef3daf8d2f2fbe14d20c13953a7f08cb0b73e773af3e451abb56d5890",
+      "purpose": "Carry exact live 10/25 priority, affinity and cross-request cooldown behavior",
+      "source": "production-source-base-20261025",
+      "owner": "motai",
+      "decision": "carried",
+      "reason": "Already deployed maintenance delta; preserve current baseline",
+      "touched_files": [
+        "controller/relay.go",
+        "controller/relay_transient_failure_test.go",
+        "middleware/distributor.go",
+        "middleware/distributor_affinity_priority_test.go",
+        "model/ability.go",
+        "model/channel_affinity_priority_test.go",
+        "model/channel_cache.go",
+        "model/channel_transient_failure.go",
+        "model/channel_transient_failure_test.go",
+        "service/channel_select.go",
+        "service/channel_select_auto_groups_test.go"
+      ],
+      "acceptance": [
+        "verification/new-api-live-cooldown-20261025.md",
+        "gateway/lab/verify.mjs --failure-cooldown"
+      ]
+    },
+    {
+      "id": "0002-nocharge-hook",
+      "path": "gateway/patches/0002-motai-nocharge-hook.patch",
+      "sha256": "ff9853c49b53799c70c6f3341b7997594ba096fd10836d27b90d8eec14acbd93",
+      "purpose": "Candidate-only price/billing bypass and existing-adaptor numeric usage hook",
+      "source": "accurate maintained rc25 core plus 0001",
+      "owner": "motai",
+      "decision": "carried",
+      "reason": "Required A0 headless no-charge contract",
+      "touched_files": [
+        "relay/helper/price.go",
+        "service/billing.go",
+        "service/text_quota.go",
+        "service/quota.go",
+        "service/violation_fee.go",
+        "controller/relay.go",
+        "relay/responses_handler.go",
+        "relay/compatible_handler.go",
+        "relay/claude_handler.go",
+        "relay/gemini_handler.go"
+      ],
+      "acceptance": [
+        "motai usage shared vectors",
+        "service MotaiNoCharge tests",
+        "candidate protocol lab with mutator probe"
+      ]
+    },
+    {
+      "id": "0003-attempt-observation",
+      "path": "gateway/patches/0003-motai-attempt-observation.patch",
+      "sha256": "1e9452ec537fadf4a3acdcd07e58ae3a3e5479d0b9d69eab28207ab010c01e22",
+      "purpose": "Local terminal classification, transport evidence, existing Responses semantic hook",
+      "source": "maintained rc25 plus 0001 and 0002",
+      "owner": "motai",
+      "decision": "carried",
+      "reason": "S4 durable attempt boundary",
+      "touched_files": [
+        "controller/relay.go",
+        "relay/channel/api_request.go",
+        "relay/channel/openai/relay_responses.go"
+      ],
+      "acceptance": [
+        "S4 isolated PG transactions and protocol lab"
+      ]
+    },
+    {
+      "id": "0005-client-gone-log-level",
+      "path": "gateway/patches/0005-motai-client-gone-log-level.patch",
+      "sha256": "a3af1818058f62fe664085309365b1a22462bb74ca41868347b47520b5079a12",
+      "purpose": "Log client disconnects at WARN instead of ERR so real stream faults stay visible",
+      "source": "maintained rc25 plus 0001, 0002 and 0003",
+      "owner": "motai",
+      "decision": "carried",
+      "reason": "Client disconnects made up 137 of 141 [ERR] lines in two hours of production logs",
+      "touched_files": [
+        "relay/helper/stream_scanner.go",
+        "relay/helper/stream_scanner_test.go"
+      ],
+      "acceptance": [
+        "relay/helper TestStreamScannerHandler_ClientGoneIsNotLoggedAsError"
+      ]
+    },
+    {
+      "id": "0006-gemini4-thinking-level",
+      "path": "gateway/patches/0006-gemini4-thinking-level.patch",
+      "sha256": "ac1c7a6a009ee430fde8c14141fbeac418efba44e8df6378d517e16f93cf1a67",
+      "purpose": "Backport model-specific Gemini 4 thinkingLevel mapping",
+      "source": "QuantumNous/new-api#8367 (669d774976369e986f03b6e24fff1042f6f94832)",
+      "owner": "motai",
+      "decision": "carried",
+      "reason": "Honor Hydrogen xhigh/max and Argon max while clamping unsupported levels",
+      "touched_files": [
+        "relay/gemini_handler.go",
+        "relaykit/relayconvert/gemini4_reasoning_test.go",
+        "relaykit/relayconvert/internal/claude_messages/to_oai_chat_req.go",
+        "relaykit/relayconvert/internal/oai_chat/to_gemini_chat_req.go",
+        "relaykit/relayconvert/internal/shared/gemini/request.go",
+        "relaykit/relayconvert/reasoning/gemini4.go"
+      ],
+      "acceptance": ["TestGemini4ThinkingLevelByModel"]
+    },
+    {
+      "id": "0007-cache-usage-fidelity",
+      "path": "gateway/patches/0007-motai-cache-usage-fidelity.patch",
+      "sha256": "1fb76375b777668e525a1c8a4dfb0ccc3f41c1afb88844177eb0dbfd80dc7ba1",
+      "purpose": "Preserve reported Anthropic cache-write TTL splits and unclassified remainder during response conversion and streaming",
+      "source": "maintained rc25, informed by Sub2API v0.2.23 cache usage compatibility fixes",
+      "owner": "motai",
+      "decision": "carried",
+      "reason": "The previous bridge counted unclassified writes as 5m, including in the semantic usage snapshot",
+      "touched_files": [
+        "relay/channel/claude/message_delta_usage_patch_test.go",
+        "relay/channel/claude/relay_claude_test.go",
+        "relaykit/relayconvert/internal/claude_messages/to_oai_chat_resp.go",
+        "relaykit/relayconvert/internal/oai_chat/to_claude_messages_resp.go"
+      ],
+      "acceptance": [
+        "relay/channel/claude TestClaudeCacheOnlyDeltaPreservesReportedUsage",
+        "relay/channel/claude TestBuildMessageDeltaPatchUsage and TestBuildOpenAIStyleUsageFromClaudeUsage"
+      ]
+    }
+  ]
+}

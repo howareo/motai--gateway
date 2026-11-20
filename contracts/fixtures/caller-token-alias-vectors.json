@@ -1,0 +1,210 @@
+{
+  "format_version": 1,
+  "authentication": {
+    "hash_key": "stable-synthetic-hmac-key-for-tests",
+    "bare_token": "SYNTHETIC_IMPORTED_KEY",
+    "prefixed_token": "sk-SYNTHETIC_IMPORTED_KEY",
+    "primary_hmac": "4c44a6e62744aa49ea3472425c6a8b9c5553c4cfee36b79dcdb2ce2fc9162318",
+    "alias_hmac": "2c9b42721335d2d364e3460eb251454bca71c0e8016ce07ca5fe85788192a8d6",
+    "rejected_tokens": [
+      "sk-sk-SYNTHETIC_IMPORTED_KEY",
+      "SYNTHETIC_IMPORTED_KEY-007",
+      "sk-SYNTHETIC_IMPORTED_KEY-007",
+      "synthetic_imported_key",
+      " SYNTHETIC_IMPORTED_KEY",
+      "SYNTHETIC_IMPORTED_KEY "
+    ]
+  },
+  "vectors": [
+    {
+      "id": "omitted-compatible",
+      "valid": true,
+      "callers": [
+        {
+          "token_hmac": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      ]
+    },
+    {
+      "id": "empty-compatible",
+      "valid": true,
+      "callers": [
+        {
+          "token_hmac": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "token_hmac_aliases": []
+        }
+      ]
+    },
+    {
+      "id": "one-imported-alias",
+      "valid": true,
+      "callers": [
+        {
+          "token_hmac": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "token_hmac_aliases": [
+            "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "different-callers-distinct",
+      "valid": true,
+      "callers": [
+        {
+          "token_hmac": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "token_hmac_aliases": [
+            "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          ]
+        },
+        {
+          "token_hmac": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        }
+      ]
+    },
+    {
+      "id": "primary-equals-own-alias",
+      "valid": false,
+      "callers": [
+        {
+          "token_hmac": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "token_hmac_aliases": [
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "two-aliases-rejected",
+      "valid": false,
+      "callers": [
+        {
+          "token_hmac": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "token_hmac_aliases": [
+            "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "duplicate-alias-rejected",
+      "valid": false,
+      "callers": [
+        {
+          "token_hmac": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "token_hmac_aliases": [
+            "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "malformed-alias-rejected",
+      "valid": false,
+      "callers": [
+        {
+          "token_hmac": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "token_hmac_aliases": [
+            "invalid-hash"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "uppercase-alias-rejected",
+      "valid": false,
+      "callers": [
+        {
+          "token_hmac": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "token_hmac_aliases": [
+            "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "non-string-alias-rejected",
+      "valid": false,
+      "callers": [
+        {
+          "token_hmac": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "token_hmac_aliases": [
+            42
+          ]
+        }
+      ]
+    },
+    {
+      "id": "non-array-alias-rejected",
+      "valid": false,
+      "callers": [
+        {
+          "token_hmac": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "token_hmac_aliases": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        }
+      ]
+    },
+    {
+      "id": "cross-primary-primary",
+      "valid": false,
+      "callers": [
+        {
+          "token_hmac": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        {
+          "token_hmac": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      ]
+    },
+    {
+      "id": "cross-alias-primary",
+      "valid": false,
+      "callers": [
+        {
+          "token_hmac": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "token_hmac_aliases": [
+            "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          ]
+        },
+        {
+          "token_hmac": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        }
+      ]
+    },
+    {
+      "id": "cross-primary-alias",
+      "valid": false,
+      "callers": [
+        {
+          "token_hmac": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        {
+          "token_hmac": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "token_hmac_aliases": [
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cross-alias-alias",
+      "valid": false,
+      "callers": [
+        {
+          "token_hmac": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "token_hmac_aliases": [
+            "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+          ]
+        },
+        {
+          "token_hmac": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "token_hmac_aliases": [
+            "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+          ]
+        }
+      ]
+    }
+  ]
+}

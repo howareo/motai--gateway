@@ -1,0 +1,36 @@
+{
+  "capturedOn": "2026-10-25",
+  "timezone": "Asia/Shanghai",
+  "selection": "maintained-new-api-core",
+  "phase": "isolated-protocol-spike",
+  "core": {
+    "imageTag": "local/new-api-ops:rc25-deepseek-group-20261018",
+    "imageId": "sha256:d1f5375c018e0f105ec856459102bdccc38752726a9025c26a73601f602d28e9",
+    "binaryPath": "/opt/new-api/new-api",
+    "runningBinarySha256": "96608fdbfcec3822951cbdc7ff37a0675ea078530a112ba55a2a725f8cfa79f1",
+    "upstreamRepository": "https://github.com/QuantumNous/new-api",
+    "documentedUpstreamCommit": "f116414284162ad15d8925f7bca494c109b83e93",
+    "license": "AGPL-3.0",
+    "exactSourceReproductionVerified": false,
+    "sourceCaveats": [
+      "The production image is the baseline; the upstream commit alone does not include maintained patches.",
+      "The host artifact with the same version name has SHA256 e37d2f98ef1f6a01159e8a684a25e42a40d6c9c2c92fe34dffca18af7a9cf96b, which differs from the running binary.",
+      "The local source archive lacks .git and VERSION provenance; do not rebuild it and claim it reproduces this image."
+    ]
+  },
+  "referenceOnly": {
+    "sub2api": {
+      "repository": "https://github.com/Wei-Shaw/sub2api",
+      "observedMainCommit": "37067e8e340e9440d173a92b4faa05e8ce58368f",
+      "license": "LGPL-3.0",
+      "licenseBlob": "153d416dc8d2d60076698ec3cbfce34d91436a03",
+      "currentProtocolSpikeRun": false
+    },
+    "localNewApiSourceArchive": {
+      "path": ".migration-private/new-api-rc25-source-20260825.tar",
+      "sha256": "b2b7b031c259359170295b959339715135814b0551566394f11114df53f44945",
+      "relaykitStandaloneHttpServer": false,
+      "relaykitSeparateLicenseFound": false
+    }
+  }
+}

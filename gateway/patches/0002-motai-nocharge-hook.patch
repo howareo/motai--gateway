@@ -1,0 +1,214 @@
+diff --git a/relay/helper/price.go b/relay/helper/price.go
+index b9ae819..b9fa53e 100644
+--- a/relay/helper/price.go
++++ b/relay/helper/price.go
+@@ -1,6 +1,7 @@
+ package helper
+ 
+ import (
++	"github.com/QuantumNous/new-api/motai/nocharge"
+ 	"fmt"
+ 	"strings"
+ 
+@@ -71,6 +72,10 @@ func HandleGroupRatio(ctx *gin.Context, relayInfo *relaycommon.RelayInfo) hostty
+ }
+ 
+ func ModelPriceHelper(c *gin.Context, info *relaycommon.RelayInfo, promptTokens int, meta *types.TokenCountMeta) (hosttypes.PriceData, error) {
++	if nocharge.Enabled() {
++		info.PriceData = hosttypes.PriceData{}
++		return info.PriceData, nil
++	}
+ 	modelPrice, usePrice := ratio_setting.GetModelPrice(info.OriginModelName, false)
+ 
+ 	groupRatioInfo := HandleGroupRatio(c, info)
+diff --git a/service/billing.go b/service/billing.go
+index 7ffa537..1d5e96a 100644
+--- a/service/billing.go
++++ b/service/billing.go
+@@ -1,6 +1,7 @@
+ package service
+ 
+ import (
++	"github.com/QuantumNous/new-api/motai/nocharge"
+ 	"fmt"
+ 	"net/http"
+ 
+@@ -18,6 +19,10 @@ const (
+ // PreConsumeBilling 根据用户计费偏好创建 BillingSession 并执行预扣费。
+ // 会话存储在 relayInfo.Billing 上，供后续 Settle / Refund 使用。
+ func PreConsumeBilling(c *gin.Context, preConsumedQuota int, relayInfo *relaycommon.RelayInfo) *types.NewAPIError {
++	if nocharge.Enabled() && relayInfo != nil {
++		installMotaiNoCharge(relayInfo)
++		return nil
++	}
+ 	if relayInfo != nil && relayInfo.QuotaClamp != nil {
+ 		return types.NewErrorWithStatusCode(
+ 			relayInfo.QuotaClamp,
+@@ -49,6 +54,9 @@ func PreConsumeBilling(c *gin.Context, preConsumedQuota int, relayInfo *relaycom
+ // SettleBilling 执行计费结算。如果 RelayInfo 上有 BillingSession 则通过 session 结算，
+ // 否则回退到旧的 PostConsumeQuota 路径（兼容按次计费等场景）。
+ func SettleBilling(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, actualQuota int) error {
++	if nocharge.Enabled() {
++		return installMotaiNoCharge(relayInfo).Settle(actualQuota)
++	}
+ 	if relayInfo.Billing != nil {
+ 		preConsumed := relayInfo.Billing.GetPreConsumedQuota()
+ 		delta := actualQuota - preConsumed
+diff --git a/service/text_quota.go b/service/text_quota.go
+index b7578f7..6df8dd5 100644
+--- a/service/text_quota.go
++++ b/service/text_quota.go
+@@ -1,6 +1,7 @@
+ package service
+ 
+ import (
++	"github.com/QuantumNous/new-api/motai/nocharge"
+ 	"fmt"
+ 	"math"
+ 	"sort"
+@@ -395,6 +396,11 @@ func usageSemanticFromUsage(relayInfo *relaycommon.RelayInfo, usage *dto.Usage)
+ }
+ 
+ func PostTextConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, usage *dto.Usage, extraContent []string) {
++	if nocharge.Enabled() {
++		ObserveMotaiUsage(ctx, relayInfo, usage, false)
++		_ = SettleBilling(ctx, relayInfo, 0)
++		return
++	}
+ 	originUsage := usage
+ 	billingUsage := effectiveBillingUsage(usage)
+ 	if usage == nil {
+diff --git a/service/quota.go b/service/quota.go
+index 359956a..417cfe8 100644
+--- a/service/quota.go
++++ b/service/quota.go
+@@ -1,6 +1,7 @@
+ package service
+ 
+ import (
++	"github.com/QuantumNous/new-api/motai/nocharge"
+ 	"errors"
+ 	"fmt"
+ 	"math"
+@@ -280,6 +281,11 @@ func CalcOpenRouterCacheCreateTokens(usage dto.Usage, priceData types.PriceData)
+ }
+ 
+ func PostAudioConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, usage *dto.Usage, extraContent string) {
++	if nocharge.Enabled() {
++		ObserveMotaiUsage(ctx, relayInfo, usage, false)
++		_ = SettleBilling(ctx, relayInfo, 0)
++		return
++	}
+ 
+ 	var tieredUsedVars map[string]bool
+ 	if snap := relayInfo.TieredBillingSnapshot; snap != nil {
+diff --git a/service/violation_fee.go b/service/violation_fee.go
+index f515336..494dd09 100644
+--- a/service/violation_fee.go
++++ b/service/violation_fee.go
+@@ -1,6 +1,7 @@
+ package service
+ 
+ import (
++	"github.com/QuantumNous/new-api/motai/nocharge"
+ 	"fmt"
+ 	"strings"
+ 	"time"
+@@ -102,6 +103,9 @@ func calcViolationFeeQuota(amount, groupRatio float64) int {
+ // ChargeViolationFeeIfNeeded charges an additional fee after the normal flow finishes (including refund).
+ // It uses Grok fee settings as the fee policy.
+ func ChargeViolationFeeIfNeeded(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, apiErr *types.NewAPIError) bool {
++	if nocharge.Enabled() {
++		return false
++	}
+ 	if ctx == nil || relayInfo == nil || apiErr == nil {
+ 		return false
+ 	}
+diff --git a/controller/relay.go b/controller/relay.go
+index 5baef57..7cc7d2a 100644
+--- a/controller/relay.go
++++ b/controller/relay.go
+@@ -1,6 +1,7 @@
+ package controller
+ 
+ import (
++	"github.com/QuantumNous/new-api/motai/nocharge"
+ 	"errors"
+ 	"fmt"
+ 	"io"
+@@ -345,6 +346,9 @@ func getChannel(c *gin.Context, info *relaycommon.RelayInfo, retryParam *service
+ }
+ 
+ func shouldRetry(c *gin.Context, openaiErr *types.NewAPIError, retryTimes int) bool {
++	if nocharge.Enabled() {
++		return false
++	}
+ 	if openaiErr == nil {
+ 		return false
+ 	}
+@@ -381,6 +385,9 @@ func shouldRetry(c *gin.Context, openaiErr *types.NewAPIError, retryTimes int) b
+ }
+ 
+ func processChannelError(c *gin.Context, channelError types.ChannelError, err *types.NewAPIError) {
++	if nocharge.Enabled() {
++		return
++	}
+ 	logger.LogError(c, fmt.Sprintf("channel error (channel #%d, status code: %d): %s", channelError.ChannelId, err.StatusCode, common.LocalLogPreview(err.Error())))
+ 	// 不要使用context获取渠道信息，异步处理时可能会出现渠道信息不一致的情况
+ 	// do not use context to get channel info, there may be inconsistent channel info when processing asynchronously
+diff --git a/relay/responses_handler.go b/relay/responses_handler.go
+index 4321c7a..78f0d93 100644
+--- a/relay/responses_handler.go
++++ b/relay/responses_handler.go
+@@ -138,6 +138,7 @@ func ResponsesHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *
+ 	}
+ 
+ 	usage, newAPIError := adaptor.DoResponse(c, httpResp, info)
++	service.ObserveMotaiUsage(c, info, usage, newAPIError != nil)
+ 	if newAPIError != nil {
+ 		// reset status code 重置状态码
+ 		service.ResetStatusCode(newAPIError, statusCodeMappingStr)
+diff --git a/relay/compatible_handler.go b/relay/compatible_handler.go
+index 8edb336..38901ab 100644
+--- a/relay/compatible_handler.go
++++ b/relay/compatible_handler.go
+@@ -204,6 +204,7 @@ func TextHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *types
+ 	}
+ 
+ 	usage, newApiErr := adaptor.DoResponse(c, httpResp, info)
++	service.ObserveMotaiUsage(c, info, usage, newApiErr != nil)
+ 	if newApiErr != nil {
+ 		// reset status code 重置状态码
+ 		service.ResetStatusCode(newApiErr, statusCodeMappingStr)
+diff --git a/relay/claude_handler.go b/relay/claude_handler.go
+index 53a8ded..f6535b7 100644
+--- a/relay/claude_handler.go
++++ b/relay/claude_handler.go
+@@ -230,6 +230,7 @@ func ClaudeHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *typ
+ 	}
+ 
+ 	usage, newAPIError := adaptor.DoResponse(c, httpResp, info)
++	service.ObserveMotaiUsage(c, info, usage, newAPIError != nil)
+ 	if newAPIError != nil {
+ 		// reset status code 重置状态码
+ 		service.ResetStatusCode(newAPIError, statusCodeMappingStr)
+diff --git a/relay/gemini_handler.go b/relay/gemini_handler.go
+index 57010d8..11c3a01 100644
+--- a/relay/gemini_handler.go
++++ b/relay/gemini_handler.go
+@@ -194,6 +194,7 @@ func GeminiHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *typ
+ 	}
+ 
+ 	usage, openaiErr := adaptor.DoResponse(c, resp.(*http.Response), info)
++	service.ObserveMotaiUsage(c, info, usage, openaiErr != nil)
+ 	if openaiErr != nil {
+ 		service.ResetStatusCode(openaiErr, statusCodeMappingStr)
+ 		return openaiErr
+@@ -294,6 +295,7 @@ func GeminiEmbeddingHandler(c *gin.Context, info *relaycommon.RelayInfo) (newAPI
+ 	}
+ 
+ 	usage, openaiErr := adaptor.DoResponse(c, resp.(*http.Response), info)
++	service.ObserveMotaiUsage(c, info, usage, openaiErr != nil)
+ 	if openaiErr != nil {
+ 		service.ResetStatusCode(openaiErr, statusCodeMappingStr)
+ 		return openaiErr

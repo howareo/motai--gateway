@@ -1,0 +1,199 @@
+diff --git a/relay/channel/claude/message_delta_usage_patch_test.go b/relay/channel/claude/message_delta_usage_patch_test.go
+index d698bf0..d10ec2a 100644
+--- a/relay/channel/claude/message_delta_usage_patch_test.go
++++ b/relay/channel/claude/message_delta_usage_patch_test.go
+@@ -85,7 +85,7 @@ func TestBuildMessageDeltaPatchUsage(t *testing.T) {
+ 		require.EqualValues(t, 50, usage.CacheCreationInputTokens)
+ 		require.EqualValues(t, 53, usage.OutputTokens)
+ 		require.NotNil(t, usage.CacheCreation)
+-		require.EqualValues(t, 30, usage.CacheCreation.Ephemeral5mInputTokens)
++		require.EqualValues(t, 10, usage.CacheCreation.Ephemeral5mInputTokens)
+ 		require.EqualValues(t, 20, usage.CacheCreation.Ephemeral1hInputTokens)
+ 	})
+ 
+@@ -109,7 +109,7 @@ func TestBuildMessageDeltaPatchUsage(t *testing.T) {
+ 		require.EqualValues(t, 6, usage.CacheCreationInputTokens)
+ 	})
+ 
+-	t.Run("default aggregate cache creation to 5m when split missing", func(t *testing.T) {
++	t.Run("leave aggregate cache creation unclassified when split missing", func(t *testing.T) {
+ 		claudeResponse := &dto.ClaudeResponse{Usage: &dto.ClaudeUsage{
+ 			OutputTokens:             53,
+ 			CacheCreationInputTokens: 50,
+@@ -122,8 +122,36 @@ func TestBuildMessageDeltaPatchUsage(t *testing.T) {
+ 
+ 		usage := buildMessageDeltaPatchUsage(claudeResponse, claudeInfo)
+ 		require.NotNil(t, usage)
+-		require.NotNil(t, usage.CacheCreation)
+-		require.EqualValues(t, 50, usage.CacheCreation.Ephemeral5mInputTokens)
+-		require.EqualValues(t, 0, usage.CacheCreation.Ephemeral1hInputTokens)
++		require.Nil(t, usage.CacheCreation)
+ 	})
+ }
++
++func TestClaudeCacheOnlyDeltaPreservesReportedUsage(t *testing.T) {
++	info := &ClaudeResponseInfo{}
++	start := &dto.ClaudeResponse{Type: "message_start", Message: &dto.ClaudeMediaMessage{Usage: &dto.ClaudeUsage{
++		InputTokens: 100, OutputTokens: 4, CacheCreationInputTokens: 50,
++		CacheCreation: &dto.ClaudeCacheCreationUsage{Ephemeral5mInputTokens: 10},
++	}}}
++	require.True(t, FormatClaudeResponseInfo(start, nil, info))
++	delta := &dto.ClaudeResponse{Type: "message_delta", Usage: &dto.ClaudeUsage{
++		CacheCreation: &dto.ClaudeCacheCreationUsage{Ephemeral1hInputTokens: 20},
++	}}
++	require.True(t, FormatClaudeResponseInfo(delta, nil, info))
++	observed := info.Usage.BillingUsage.ClaudeUsage
++	require.EqualValues(t, 100, observed.InputTokens)
++	require.EqualValues(t, 4, observed.OutputTokens)
++	require.EqualValues(t, 50, observed.CacheCreationInputTokens)
++	require.EqualValues(t, 10, observed.GetCacheCreation5mTokens())
++	require.EqualValues(t, 20, observed.GetCacheCreation1hTokens())
++
++	wire := buildOpenAIStyleUsageFromClaudeUsage(info.Usage)
++	require.EqualValues(t, 150, wire.PromptTokens)
++	require.EqualValues(t, 50, wire.PromptTokensDetails.CacheWriteTokens)
++	require.EqualValues(t, 10, wire.ClaudeCacheCreation5mTokens)
++	require.EqualValues(t, 20, wire.ClaudeCacheCreation1hTokens)
++
++	patched := buildMessageDeltaPatchUsage(delta, info)
++	require.EqualValues(t, 10, patched.GetCacheCreation5mTokens())
++	require.EqualValues(t, 20, patched.GetCacheCreation1hTokens())
++	require.Zero(t, delta.Usage.GetCacheCreation5mTokens())
++}
+diff --git a/relay/channel/claude/relay_claude_test.go b/relay/channel/claude/relay_claude_test.go
+index 3975658..5dd0cb6 100644
+--- a/relay/channel/claude/relay_claude_test.go
++++ b/relay/channel/claude/relay_claude_test.go
+@@ -306,7 +306,7 @@ func TestBuildOpenAIStyleUsageFromClaudeUsagePreservesCacheCreationRemainder(t *
+ 	}
+ }
+ 
+-func TestBuildOpenAIStyleUsageFromClaudeUsageDefaultsAggregateCacheCreationTo5m(t *testing.T) {
++func TestBuildOpenAIStyleUsageFromClaudeUsageKeepsAggregateCacheCreationUnclassified(t *testing.T) {
+ 	usage := &dto.Usage{
+ 		PromptTokens:     100,
+ 		CompletionTokens: 20,
+@@ -319,7 +319,8 @@ func TestBuildOpenAIStyleUsageFromClaudeUsageDefaultsAggregateCacheCreationTo5m(
+ 
+ 	openAIUsage := buildOpenAIStyleUsageFromClaudeUsage(usage)
+ 
+-	require.Equal(t, 50, openAIUsage.ClaudeCacheCreation5mTokens)
++	require.Equal(t, 50, openAIUsage.PromptTokensDetails.CacheWriteTokens)
++	require.Zero(t, openAIUsage.ClaudeCacheCreation5mTokens)
+ 	require.Equal(t, 0, openAIUsage.ClaudeCacheCreation1hTokens)
+ }
+ 
+diff --git a/relaykit/relayconvert/internal/claude_messages/to_oai_chat_resp.go b/relaykit/relayconvert/internal/claude_messages/to_oai_chat_resp.go
+index 5576233..787b4e4 100644
+--- a/relaykit/relayconvert/internal/claude_messages/to_oai_chat_resp.go
++++ b/relaykit/relayconvert/internal/claude_messages/to_oai_chat_resp.go
+@@ -6,7 +6,6 @@ import (
+ 
+ 	"github.com/QuantumNous/new-api/relaykit/dto"
+ 	"github.com/QuantumNous/new-api/relaykit/reasonmap"
+-	sharedclaude "github.com/QuantumNous/new-api/relaykit/relayconvert/internal/shared/claude"
+ 	kitutil "github.com/QuantumNous/new-api/relaykit/relayconvert/kitutil"
+ 	"github.com/tidwall/gjson"
+ 	"github.com/tidwall/sjson"
+@@ -194,14 +193,10 @@ func cacheCreationTokensForOpenAIUsage(usage *dto.Usage) int {
+ 	if usage == nil {
+ 		return 0
+ 	}
+-	splitCacheCreationTokens := usage.ClaudeCacheCreation5mTokens + usage.ClaudeCacheCreation1hTokens
+-	if splitCacheCreationTokens == 0 {
++	if usage.PromptTokensDetails.CachedCreationTokens != 0 {
+ 		return usage.PromptTokensDetails.CachedCreationTokens
+ 	}
+-	if usage.PromptTokensDetails.CachedCreationTokens > splitCacheCreationTokens {
+-		return usage.PromptTokensDetails.CachedCreationTokens
+-	}
+-	return splitCacheCreationTokens
++	return usage.ClaudeCacheCreation5mTokens + usage.ClaudeCacheCreation1hTokens
+ }
+ 
+ func buildOpenAIStyleUsageFromClaudeUsage(usage *dto.Usage) dto.Usage {
+@@ -210,11 +205,6 @@ func buildOpenAIStyleUsageFromClaudeUsage(usage *dto.Usage) dto.Usage {
+ 	}
+ 	clone := *usage
+ 	clone.BillingUsage = dto.CloneBillingUsage(usage.BillingUsage)
+-	clone.ClaudeCacheCreation5mTokens, clone.ClaudeCacheCreation1hTokens = sharedclaude.NormalizeCacheCreationSplit(
+-		usage.PromptTokensDetails.CachedCreationTokens,
+-		usage.ClaudeCacheCreation5mTokens,
+-		usage.ClaudeCacheCreation1hTokens,
+-	)
+ 	cacheCreationTokens := cacheCreationTokensForOpenAIUsage(usage)
+ 	// Expose the standard OpenAI cache-write field alongside the legacy
+ 	// cached_creation_tokens so OpenAI-format clients can bill cache writes.
+@@ -247,26 +237,19 @@ func BuildMessageDeltaPatchUsage(claudeResponse *dto.ClaudeResponse, claudeInfo
+ 	if usage.CacheCreationInputTokens == 0 && claudeInfo.Usage.PromptTokensDetails.CachedCreationTokens > 0 {
+ 		usage.CacheCreationInputTokens = claudeInfo.Usage.PromptTokensDetails.CachedCreationTokens
+ 	}
+-	cacheCreation5m := 0
+-	cacheCreation1h := 0
+-	if usage.CacheCreation != nil {
+-		cacheCreation5m = usage.CacheCreation.Ephemeral5mInputTokens
+-		cacheCreation1h = usage.CacheCreation.Ephemeral1hInputTokens
+-	} else {
++	cacheCreation5m := usage.GetCacheCreation5mTokens()
++	if cacheCreation5m == 0 {
+ 		cacheCreation5m = claudeInfo.Usage.ClaudeCacheCreation5mTokens
+-		cacheCreation1h = claudeInfo.Usage.ClaudeCacheCreation1hTokens
+ 	}
+-	cacheCreation5m, cacheCreation1h = sharedclaude.NormalizeCacheCreationSplit(
+-		usage.CacheCreationInputTokens,
+-		cacheCreation5m,
+-		cacheCreation1h,
+-	)
+-	if usage.CacheCreation == nil && (cacheCreation5m > 0 || cacheCreation1h > 0) {
+-		usage.CacheCreation = &dto.ClaudeCacheCreationUsage{}
++	cacheCreation1h := usage.GetCacheCreation1hTokens()
++	if cacheCreation1h == 0 {
++		cacheCreation1h = claudeInfo.Usage.ClaudeCacheCreation1hTokens
+ 	}
+-	if usage.CacheCreation != nil {
+-		usage.CacheCreation.Ephemeral5mInputTokens = cacheCreation5m
+-		usage.CacheCreation.Ephemeral1hInputTokens = cacheCreation1h
++	if usage.CacheCreation != nil || cacheCreation5m > 0 || cacheCreation1h > 0 {
++		usage.CacheCreation = &dto.ClaudeCacheCreationUsage{
++			Ephemeral5mInputTokens: cacheCreation5m,
++			Ephemeral1hInputTokens: cacheCreation1h,
++		}
+ 	}
+ 	return usage
+ }
+@@ -275,14 +258,11 @@ func claudeBillingUsageFromSemanticUsage(usage *dto.Usage) *dto.BillingUsage {
+ 	if usage == nil {
+ 		return nil
+ 	}
+-	cacheCreation5m, cacheCreation1h := sharedclaude.NormalizeCacheCreationSplit(
+-		usage.PromptTokensDetails.CachedCreationTokens,
+-		usage.ClaudeCacheCreation5mTokens,
+-		usage.ClaudeCacheCreation1hTokens,
+-	)
++	cacheCreation5m := usage.ClaudeCacheCreation5mTokens
++	cacheCreation1h := usage.ClaudeCacheCreation1hTokens
+ 	claudeUsage := &dto.ClaudeUsage{
+ 		InputTokens:              usage.PromptTokens,
+-		CacheCreationInputTokens: usage.PromptTokensDetails.CachedCreationTokens,
++		CacheCreationInputTokens: cacheCreationTokensForOpenAIUsage(usage),
+ 		CacheReadInputTokens:     usage.PromptTokensDetails.CachedTokens,
+ 		OutputTokens:             usage.CompletionTokens,
+ 	}
+diff --git a/relaykit/relayconvert/internal/oai_chat/to_claude_messages_resp.go b/relaykit/relayconvert/internal/oai_chat/to_claude_messages_resp.go
+index 554e70a..4cbfea8 100644
+--- a/relaykit/relayconvert/internal/oai_chat/to_claude_messages_resp.go
++++ b/relaykit/relayconvert/internal/oai_chat/to_claude_messages_resp.go
+@@ -52,11 +52,8 @@ func buildClaudeUsageFromOpenAIUsage(oaiUsage *dto.Usage) *dto.ClaudeUsage {
+ 			billingUsage = existingBillingUsage
+ 		}
+ 	}
+-	cacheCreation5m, cacheCreation1h := NormalizeCacheCreationSplit(
+-		oaiUsage.PromptTokensDetails.CachedCreationTokens,
+-		oaiUsage.ClaudeCacheCreation5mTokens,
+-		oaiUsage.ClaudeCacheCreation1hTokens,
+-	)
++	cacheCreation5m := oaiUsage.ClaudeCacheCreation5mTokens
++	cacheCreation1h := oaiUsage.ClaudeCacheCreation1hTokens
+ 	cacheCreationTokens := oaiUsage.PromptTokensDetails.CacheCreationTokensTotal()
+ 	inputTokens := oaiUsage.PromptTokens
+ 	if oaiUsage.PromptTokensDetails.CacheWriteTokens > 0 {

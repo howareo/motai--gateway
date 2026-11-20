@@ -1,0 +1,14 @@
+{
+  "vectors": [
+    { "id": "adapter-omitted-compatible", "valid": true },
+    { "id": "adapter-openai", "adapter": "openai", "valid": true },
+    { "id": "adapter-anthropic", "adapter": "anthropic", "valid": true },
+    { "id": "adapter-deepseek", "adapter": "deepseek", "valid": true },
+    { "id": "adapter-xai", "adapter": "xai", "valid": true },
+    { "id": "adapter-gemini", "adapter": "gemini", "valid": true },
+    { "id": "adapter-unknown-rejected", "adapter": "vendor-guess", "valid": false },
+    { "id": "adapter-empty-rejected", "adapter": "", "valid": false },
+    { "id": "adapter-null-rejected", "adapter": null, "valid": false },
+    { "id": "adapter-number-rejected", "adapter": 43, "valid": false }
+  ]
+}

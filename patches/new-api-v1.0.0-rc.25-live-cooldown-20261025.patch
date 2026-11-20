@@ -1,0 +1,872 @@
+diff --git a/controller/relay.go b/controller/relay.go
+index 8dccfe7..5baef57 100644
+--- a/controller/relay.go
++++ b/controller/relay.go
+@@ -228,6 +228,7 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
+ 			newAPIError = relayHandler(c, relayInfo)
+ 		}
+ 
++		recordChannelTransientOutcome(c, relayInfo, channel.Id, newAPIError)
+ 		if newAPIError == nil {
+ 			relayInfo.LastError = nil
+ 			return
+@@ -255,6 +256,20 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
+ 	}
+ }
+ 
++func recordChannelTransientOutcome(c *gin.Context, info *relaycommon.RelayInfo, channelID int, err *types.NewAPIError) {
++	if c == nil || c.Request == nil || c.Request.Context().Err() != nil {
++		return // A client cancellation is not an upstream health observation.
++	}
++	if err == nil {
++		if info.StreamStatus.HasErrors() || (info.IsStream && !info.StreamStatus.IsNormalEnd()) {
++			return // An interrupted stream must not reset actual upstream failures.
++		}
++		model.ResetChannelTransientFailures(info.UsingGroup, info.OriginModelName, channelID)
++		return
++	}
++	model.RecordChannelTransientFailure(info.UsingGroup, info.OriginModelName, channelID, err.StatusCode)
++}
++
+ var upgrader = websocket.Upgrader{
+ 	Subprotocols: []string{"realtime"}, // WS 握手支持的协议，如果有使用 Sec-WebSocket-Protocol，则必须在此声明对应的 Protocol TODO add other protocol
+ 	CheckOrigin: func(r *http.Request) bool {
+@@ -298,7 +313,8 @@ func fastTokenCountMetaForPricing(request dto.Request) *types.TokenCountMeta {
+ }
+ 
+ func getChannel(c *gin.Context, info *relaycommon.RelayInfo, retryParam *service.RetryParam) (*model.Channel, *types.NewAPIError) {
+-	if info.ChannelMeta == nil {
++	_, specificChannel := c.Get("specific_channel_id")
++	if info.ChannelMeta == nil || specificChannel {
+ 		autoBan := c.GetBool("auto_ban")
+ 		autoBanInt := 1
+ 		if !autoBan {
+@@ -332,6 +348,10 @@ func shouldRetry(c *gin.Context, openaiErr *types.NewAPIError, retryTimes int) b
+ 	if openaiErr == nil {
+ 		return false
+ 	}
++	if (c.Writer != nil && c.Writer.Written()) || openaiErr.StatusCode == 429 ||
++		(openaiErr.StatusCode >= 500 && openaiErr.StatusCode <= 599) || operation_setting.IsAlwaysSkipRetryStatusCode(openaiErr.StatusCode) {
++		return false
++	}
+ 	if service.ShouldSkipRetryAfterChannelAffinityFailure(c) {
+ 		return false
+ 	}
+diff --git a/controller/relay_transient_failure_test.go b/controller/relay_transient_failure_test.go
+new file mode 100644
+index 0000000..36e8c4f
+--- /dev/null
++++ b/controller/relay_transient_failure_test.go
+@@ -0,0 +1,98 @@
++package controller
++
++import (
++	"context"
++	"errors"
++	"net/http"
++	"net/http/httptest"
++	"testing"
++	"time"
++
++	"github.com/QuantumNous/new-api/common"
++	"github.com/QuantumNous/new-api/constant"
++	"github.com/QuantumNous/new-api/model"
++	relaycommon "github.com/QuantumNous/new-api/relay/common"
++	"github.com/QuantumNous/new-api/relaykit/types"
++	"github.com/QuantumNous/new-api/service"
++	"github.com/gin-gonic/gin"
++	"github.com/glebarez/sqlite"
++	"github.com/stretchr/testify/require"
++	"gorm.io/gorm"
++)
++
++func TestTransientFailureNeverReplaysTimeoutOrWrittenResponse(t *testing.T) {
++	gin.SetMode(gin.TestMode)
++	for _, status := range []int{429, 500, 502, 503, 504, 524} {
++		ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
++		err := types.NewErrorWithStatusCode(errors.New("synthetic timeout"), types.ErrorCodeBadResponseStatusCode, status)
++		require.False(t, shouldRetry(ctx, err, 2))
++	}
++	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
++	ctx.String(200, "synthetic partial output")
++	err := types.NewErrorWithStatusCode(errors.New("synthetic error after output"), types.ErrorCodeBadResponseStatusCode, 503)
++	require.False(t, shouldRetry(ctx, err, 2))
++}
++
++func TestTransientFailureClientCancellationIsNotUpstreamFailure(t *testing.T) {
++	originalDB, originalMemory := model.DB, common.MemoryCacheEnabled
++	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
++	require.NoError(t, err)
++	require.NoError(t, db.AutoMigrate(&model.Channel{}, &model.Ability{}))
++	model.DB, common.MemoryCacheEnabled = db, true
++	const group, name = "cancel-test", "synthetic-cancel-model"
++	for id := 1; id <= 2; id++ {
++		priority := int64(30 - id*10)
++		require.NoError(t, db.Create(&model.Channel{Id: id, Type: constant.ChannelTypeOpenAI, Name: "synthetic",
++			Key: "synthetic-key", Status: common.ChannelStatusEnabled, Group: group, Models: name, Priority: &priority}).Error)
++		require.NoError(t, db.Create(&model.Ability{ChannelId: id, Group: group, Model: name, Enabled: true, Priority: &priority}).Error)
++	}
++	model.InitChannelCache()
++	t.Cleanup(func() {
++		model.ResetChannelTransientFailures(group, name, 1)
++		model.DB, common.MemoryCacheEnabled = originalDB, originalMemory
++		if originalMemory && originalDB != nil {
++			model.InitChannelCache()
++		}
++		sqlDB, err := db.DB()
++		require.NoError(t, err)
++		require.NoError(t, sqlDB.Close())
++	})
++	info := &relaycommon.RelayInfo{UsingGroup: group, OriginModelName: name}
++	errUpstream := types.NewErrorWithStatusCode(errors.New("synthetic timeout"), types.ErrorCodeDoRequestFailed, 500)
++	active, _ := gin.CreateTestContext(httptest.NewRecorder())
++	active.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
++	for i := 0; i < 2; i++ {
++		recordChannelTransientOutcome(active, info, 1, errUpstream)
++	}
++	cancelled, cancel := context.WithCancel(context.Background())
++	cancel()
++	expired, finish := context.WithDeadline(context.Background(), time.Now().Add(-time.Second))
++	defer finish()
++	for _, ctx := range []context.Context{cancelled, expired} {
++		request, _ := gin.CreateTestContext(httptest.NewRecorder())
++		request.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil).WithContext(ctx)
++		recordChannelTransientOutcome(request, info, 1, errUpstream)
++		recordChannelTransientOutcome(request, info, 1, nil)
++		channel, err := model.GetRandomSatisfiedChannel(group, name, 0, "/v1/chat/completions", 0)
++		require.NoError(t, err)
++		require.Equal(t, 1, channel.Id, "cancelled transport opened the upstream circuit")
++	}
++	info.StreamStatus = relaycommon.NewStreamStatus()
++	info.StreamStatus.RecordError("synthetic interrupted stream")
++	recordChannelTransientOutcome(active, info, 1, nil)
++	recordChannelTransientOutcome(active, info, 1, errUpstream)
++	channel, err := model.GetRandomSatisfiedChannel(group, name, 0, "/v1/chat/completions", 0)
++	require.NoError(t, err)
++	require.Equal(t, 2, channel.Id, "cancelled nil error incorrectly reset actual upstream failures")
++}
++
++func TestTransientFailureExplicitChannelBypassesAutomaticSelection(t *testing.T) {
++	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
++	ctx.Set("specific_channel_id", "123")
++	ctx.Set("channel_id", 123)
++	ctx.Set("channel_type", 1)
++	info := &relaycommon.RelayInfo{ChannelMeta: &relaycommon.ChannelMeta{ChannelId: 123}}
++	channel, err := getChannel(ctx, info, &service.RetryParam{Ctx: ctx, TokenGroup: "default", ModelName: "synthetic-model"})
++	require.Nil(t, err)
++	require.Equal(t, 123, channel.Id)
++}
+diff --git a/middleware/distributor.go b/middleware/distributor.go
+index 3f53aa3..7675f62 100644
+--- a/middleware/distributor.go
++++ b/middleware/distributor.go
+@@ -102,61 +102,50 @@ func Distribute() func(c *gin.Context) {
+ 					}
+ 				}
+ 
+-				if preferredChannelID, found := service.GetPreferredChannelByAffinity(c, modelRequest.Model, usingGroup); found {
+-					affinityUsable := false
+-					preferred, err := model.CacheGetChannel(preferredChannelID)
+-					if err == nil && preferred != nil && preferred.Status == common.ChannelStatusEnabled &&
+-						channelSupportsRequestPath(preferred, c.Request.URL.Path, modelRequest.Model) {
+-						if usingGroup == "auto" {
+-							userGroup := common.GetContextKeyString(c, constant.ContextKeyUserGroup)
+-							autoGroups := service.GetRequestAutoGroups(c, userGroup)
+-							for _, g := range autoGroups {
+-								if model.IsChannelEnabledForGroupModel(g, modelRequest.Model, preferred.Id) {
+-									selectGroup = g
+-									common.SetContextKey(c, constant.ContextKeyAutoGroup, g)
+-									channel = preferred
+-									affinityUsable = true
+-									service.MarkChannelAffinityUsed(c, g, preferred.Id)
+-									break
+-								}
+-							}
+-						} else if model.IsChannelEnabledForGroupModel(usingGroup, modelRequest.Model, preferred.Id) {
+-							channel = preferred
+-							selectGroup = usingGroup
+-							affinityUsable = true
+-							service.MarkChannelAffinityUsed(c, usingGroup, preferred.Id)
+-						}
+-					}
+-					if !affinityUsable && !service.ShouldKeepChannelAffinityOnChannelDisabled() {
+-						service.ClearCurrentChannelAffinityCache(c)
++				preferredChannelID, affinityFound := service.GetPreferredChannelByAffinity(c, modelRequest.Model, usingGroup)
++
++				channel, selectGroup, err = service.CacheGetRandomSatisfiedChannel(&service.RetryParam{
++					Ctx:                c,
++					ModelName:          modelRequest.Model,
++					TokenGroup:         usingGroup,
++					RequestPath:        c.Request.URL.Path,
++					PreferredChannelID: preferredChannelID,
++					Retry:              common.GetPointer(0),
++				})
++				if err != nil {
++					showGroup := usingGroup
++					if usingGroup == "auto" {
++						showGroup = fmt.Sprintf("auto(%s)", selectGroup)
+ 					}
++					message := i18n.T(c, i18n.MsgDistributorGetChannelFailed, map[string]any{"Group": showGroup, "Model": modelRequest.Model, "Error": err.Error()})
++					// 如果错误，但是渠道不为空，说明是数据库一致性问题
++					//if channel != nil {
++					//	common.SysError(fmt.Sprintf("渠道不存在：%d", channel.Id))
++					//	message = "数据库一致性已被破坏，请联系管理员"
++					//}
++					abortWithOpenAiMessage(c, http.StatusServiceUnavailable, message, types.ErrorCodeModelNotFound)
++					return
+ 				}
+-
+ 				if channel == nil {
+-					channel, selectGroup, err = service.CacheGetRandomSatisfiedChannel(&service.RetryParam{
+-						Ctx:         c,
+-						ModelName:   modelRequest.Model,
+-						TokenGroup:  usingGroup,
+-						RequestPath: c.Request.URL.Path,
+-						Retry:       common.GetPointer(0),
+-					})
+-					if err != nil {
+-						showGroup := usingGroup
++					abortWithOpenAiMessage(c, http.StatusServiceUnavailable, i18n.T(c, i18n.MsgDistributorNoAvailableChannel, map[string]any{"Group": usingGroup, "Model": modelRequest.Model}), types.ErrorCodeModelNotFound)
++					return
++				}
++				if affinityFound {
++					if channel.Id == preferredChannelID {
++						service.MarkChannelAffinityUsed(c, selectGroup, channel.Id)
++					} else if !service.ShouldKeepChannelAffinityOnChannelDisabled() {
++						preferred, err := model.CacheGetChannel(preferredChannelID)
++						groups := []string{usingGroup}
+ 						if usingGroup == "auto" {
+-							showGroup = fmt.Sprintf("auto(%s)", selectGroup)
++							userGroup := common.GetContextKeyString(c, constant.ContextKeyUserGroup)
++							groups = service.GetRequestAutoGroups(c, userGroup)
++						}
++						// A priority change must not clear the rule's retry policy.
++						if err != nil || preferred == nil || preferred.Status != common.ChannelStatusEnabled ||
++							!channelSupportsRequestPath(preferred, c.Request.URL.Path, modelRequest.Model) ||
++							!model.IsChannelEnabledForAnyGroupModel(groups, modelRequest.Model, preferredChannelID) {
++							service.ClearCurrentChannelAffinityCache(c)
+ 						}
+-						message := i18n.T(c, i18n.MsgDistributorGetChannelFailed, map[string]any{"Group": showGroup, "Model": modelRequest.Model, "Error": err.Error()})
+-						// 如果错误，但是渠道不为空，说明是数据库一致性问题
+-						//if channel != nil {
+-						//	common.SysError(fmt.Sprintf("渠道不存在：%d", channel.Id))
+-						//	message = "数据库一致性已被破坏，请联系管理员"
+-						//}
+-						abortWithOpenAiMessage(c, http.StatusServiceUnavailable, message, types.ErrorCodeModelNotFound)
+-						return
+-					}
+-					if channel == nil {
+-						abortWithOpenAiMessage(c, http.StatusServiceUnavailable, i18n.T(c, i18n.MsgDistributorNoAvailableChannel, map[string]any{"Group": usingGroup, "Model": modelRequest.Model}), types.ErrorCodeModelNotFound)
+-						return
+ 					}
+ 				}
+ 			}
+diff --git a/middleware/distributor_affinity_priority_test.go b/middleware/distributor_affinity_priority_test.go
+new file mode 100644
+index 0000000..0e5d4df
+--- /dev/null
++++ b/middleware/distributor_affinity_priority_test.go
+@@ -0,0 +1,88 @@
++package middleware
++
++import (
++	"fmt"
++	"net/http"
++	"net/http/httptest"
++	"strings"
++	"testing"
++
++	"github.com/QuantumNous/new-api/common"
++	"github.com/QuantumNous/new-api/constant"
++	"github.com/QuantumNous/new-api/model"
++	"github.com/QuantumNous/new-api/service"
++	"github.com/QuantumNous/new-api/setting/operation_setting"
++	"github.com/gin-gonic/gin"
++	"github.com/glebarez/sqlite"
++	"github.com/stretchr/testify/assert"
++	"github.com/stretchr/testify/require"
++	"gorm.io/gorm"
++)
++
++func TestDistributeAffinityFollowsCurrentPriorityOnNextRequest(t *testing.T) {
++	originalDB, originalMemory, originalRedis := model.DB, common.MemoryCacheEnabled, common.RedisEnabled
++	affinity := operation_setting.GetChannelAffinitySetting()
++	originalAffinity := *affinity
++	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
++	require.NoError(t, err)
++	require.NoError(t, db.AutoMigrate(&model.Channel{}, &model.Ability{}))
++	model.DB, common.MemoryCacheEnabled, common.RedisEnabled = db, true, false
++	affinity.Enabled = true
++	affinity.Rules = []operation_setting.ChannelAffinityRule{{Name: "priority-regression", SkipRetryOnFailure: true, ModelRegex: []string{".*"}, KeySources: []operation_setting.ChannelAffinityKeySource{{Type: "request_header", Key: "X-Affinity-Key"}}, IncludeRuleName: true, IncludeModelName: true, IncludeUsingGroup: true}}
++	t.Cleanup(func() {
++		*affinity = originalAffinity
++		model.DB, common.MemoryCacheEnabled, common.RedisEnabled = originalDB, originalMemory, originalRedis
++		if originalMemory && originalDB != nil && originalDB.Migrator().HasTable(&model.Channel{}) && originalDB.Migrator().HasTable(&model.Ability{}) {
++			model.InitChannelCache()
++		}
++		sqlDB, err := db.DB()
++		require.NoError(t, err)
++		require.NoError(t, sqlDB.Close())
++	})
++	for id := 1; id <= 2; id++ {
++		priority := int64(6)
++		if id == 2 {
++			priority = 7
++		}
++		require.NoError(t, db.Create(&model.Channel{Id: id, Name: fmt.Sprintf("channel-%d", id), Type: constant.ChannelTypeOpenAI, Key: "test-key", Models: "grok4.7", Group: "default", Status: common.ChannelStatusEnabled, Priority: &priority}).Error)
++		require.NoError(t, db.Create(&model.Ability{ChannelId: id, Model: "grok4.7", Group: "default", Enabled: true, Priority: &priority}).Error)
++	}
++	model.InitChannelCache()
++	gin.SetMode(gin.TestMode)
++	for _, path := range []string{"/v1/chat/completions", "/v1/responses", "/v1/messages", "/v1beta/models/grok4.7:generateContent"} {
++		t.Run(path, func(t *testing.T) {
++			newContext := func() *gin.Context {
++				ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
++				ctx.Request = httptest.NewRequest(http.MethodPost, path, strings.NewReader(`{"model":"grok4.7"}`))
++				ctx.Request.Header.Set("Content-Type", "application/json")
++				ctx.Request.Header.Set("X-Affinity-Key", t.Name())
++				common.SetContextKey(ctx, constant.ContextKeyUsingGroup, "default")
++				return ctx
++			}
++			seed := newContext()
++			service.GetPreferredChannelByAffinity(seed, "grok4.7", "default")
++			service.RecordChannelAffinity(seed, 1)
++			defer service.ClearCurrentChannelAffinityCache(seed)
++
++			ctx := newContext()
++			Distribute()(ctx)
++			require.False(t, ctx.IsAborted())
++			assert.Equal(t, 2, ctx.GetInt("channel_id"))
++			assert.True(t, service.ShouldSkipRetryAfterChannelAffinityFailure(ctx))
++
++			// An old in-flight success may write the demoted channel again.
++			service.RecordChannelAffinity(seed, 1)
++			next := newContext()
++			Distribute()(next)
++			require.False(t, next.IsAborted())
++			assert.Equal(t, 2, next.GetInt("channel_id"))
++			assert.True(t, service.ShouldSkipRetryAfterChannelAffinityFailure(next))
++
++			explicit := newContext()
++			common.SetContextKey(explicit, constant.ContextKeyTokenSpecificChannelId, "1")
++			Distribute()(explicit)
++			require.False(t, explicit.IsAborted())
++			assert.Equal(t, 1, explicit.GetInt("channel_id"))
++		})
++	}
++}
+diff --git a/model/ability.go b/model/ability.go
+index d950a6a..7188da4 100644
+--- a/model/ability.go
++++ b/model/ability.go
+@@ -60,10 +60,10 @@ func GetAllEnableAbilities() []Ability {
+ 	return abilities
+ }
+ 
+-func getPriority(group string, model string, retry int) (int, error) {
++func getPriority(group string, model string, retry int, excluded []int) (int, error) {
+ 
+ 	var priorities []int
+-	err := DB.Model(&Ability{}).
++	err := withoutChannelIDs(DB.Model(&Ability{}), excluded).
+ 		Select("DISTINCT(priority)").
+ 		Where(commonGroupCol+" = ? and model = ? and enabled = ?", group, model, true).
+ 		Order("priority DESC").              // 按优先级降序排序
+@@ -90,26 +90,55 @@ func getPriority(group string, model string, retry int) (int, error) {
+ 	return priorityToUse, nil
+ }
+ 
+-func getChannelQuery(group string, model string, retry int) (*gorm.DB, error) {
+-	maxPrioritySubQuery := DB.Model(&Ability{}).Select("MAX(priority)").Where(commonGroupCol+" = ? and model = ? and enabled = ?", group, model, true)
+-	channelQuery := DB.Where(commonGroupCol+" = ? and model = ? and enabled = ? and priority = (?)", group, model, true, maxPrioritySubQuery)
++func getChannelQuery(group string, model string, retry int, excluded []int) (*gorm.DB, error) {
++	maxPrioritySubQuery := withoutChannelIDs(DB.Model(&Ability{}).Select("MAX(priority)").Where(commonGroupCol+" = ? and model = ? and enabled = ?", group, model, true), excluded)
++	channelQuery := withoutChannelIDs(DB.Where(commonGroupCol+" = ? and model = ? and enabled = ? and priority = (?)", group, model, true, maxPrioritySubQuery), excluded)
+ 	if retry != 0 {
+-		priority, err := getPriority(group, model, retry)
++		priority, err := getPriority(group, model, retry, excluded)
+ 		if err != nil {
+ 			return nil, err
+ 		} else {
+-			channelQuery = DB.Where(commonGroupCol+" = ? and model = ? and enabled = ? and priority = ?", group, model, true, priority)
++			channelQuery = withoutChannelIDs(DB.Where(commonGroupCol+" = ? and model = ? and enabled = ? and priority = ?", group, model, true, priority), excluded)
+ 		}
+ 	}
+ 
+ 	return channelQuery, nil
+ }
+ 
+-func GetChannel(group string, model string, retry int, requestPath string) (*Channel, error) {
++func withoutChannelIDs(query *gorm.DB, excluded []int) *gorm.DB {
++	if len(excluded) == 0 {
++		return query
++	}
++	return query.Where("channel_id NOT IN ?", excluded)
++}
++
++func GetChannel(group string, model string, retry int, requestPath string, preferredChannelID int) (*Channel, error) {
+ 	var abilities []Ability
++	var candidates []Ability
++	if err := DB.Where(commonGroupCol+" = ? and model = ? and enabled = ?", group, model, true).Find(&candidates).Error; err != nil {
++		return nil, err
++	}
++	candidates = filterAbilitiesByRequestPathAndModel(candidates, requestPath, model)
++	ids := make([]int, 0, len(candidates))
++	for _, candidate := range candidates {
++		ids = append(ids, candidate.ChannelId)
++	}
++	available := filterChannelsOutsideCooldown(ids, group, model)
++	excluded := make([]int, 0)
++	if len(available) < len(ids) {
++		eligible := make(map[int]bool, len(available))
++		for _, id := range available {
++			eligible[id] = true
++		}
++		for _, id := range ids {
++			if !eligible[id] {
++				excluded = append(excluded, id)
++			}
++		}
++	}
+ 
+ 	var err error = nil
+-	channelQuery, err := getChannelQuery(group, model, retry)
++	channelQuery, err := getChannelQuery(group, model, retry, excluded)
+ 	if err != nil {
+ 		return nil, err
+ 	}
+@@ -122,6 +151,11 @@ func GetChannel(group string, model string, retry int, requestPath string) (*Cha
+ 		return nil, err
+ 	}
+ 	abilities = filterAbilitiesByRequestPathAndModel(abilities, requestPath, model)
++	for _, ability := range abilities {
++		if ability.ChannelId == preferredChannelID {
++			return GetChannelById(preferredChannelID, true)
++		}
++	}
+ 	channel := Channel{}
+ 	if len(abilities) > 0 {
+ 		// Randomly choose one
+diff --git a/model/channel_affinity_priority_test.go b/model/channel_affinity_priority_test.go
+new file mode 100644
+index 0000000..9150957
+--- /dev/null
++++ b/model/channel_affinity_priority_test.go
+@@ -0,0 +1,87 @@
++package model
++
++import (
++	"fmt"
++	"testing"
++
++	"github.com/QuantumNous/new-api/common"
++	"github.com/QuantumNous/new-api/constant"
++	"github.com/QuantumNous/new-api/relaykit/dto"
++	"github.com/stretchr/testify/assert"
++	"github.com/stretchr/testify/require"
++)
++
++func TestGetRandomSatisfiedChannelAffinityRespectsCandidates(t *testing.T) {
++	originalMemoryCacheEnabled := common.MemoryCacheEnabled
++	t.Cleanup(func() {
++		require.NoError(t, DB.Exec("DELETE FROM abilities").Error)
++		require.NoError(t, DB.Exec("DELETE FROM channels").Error)
++		common.MemoryCacheEnabled = true
++		InitChannelCache()
++		common.MemoryCacheEnabled = originalMemoryCacheEnabled
++	})
++	cases := []struct {
++		name            string
++		primaryPriority int64
++		primaryModel    string
++		primaryGroup    string
++		preferredStatus int
++		primaryStatus   int
++		preferredType   int
++		retry           int
++		preference      int
++		want            int
++	}{
++		{name: "restored_primary_overrides_affinity", primaryPriority: 7, preference: 1, want: 2},
++		{name: "same_priority_keeps_affinity_even_with_zero_weight", primaryPriority: 6, preference: 1, want: 1},
++		{name: "higher_priority_unsupported_model", primaryPriority: 7, primaryModel: "other-model", preference: 1, want: 1},
++		{name: "higher_priority_other_group", primaryPriority: 7, primaryGroup: "vip", preference: 1, want: 1},
++		{name: "disabled_preference", primaryPriority: 7, preferredStatus: common.ChannelStatusManuallyDisabled, preference: 1, want: 2},
++		{name: "disabled_primary", primaryPriority: 7, primaryStatus: common.ChannelStatusManuallyDisabled, preference: 1, want: 1},
++		{name: "unsupported_path_preference", primaryPriority: 6, preferredType: constant.ChannelTypeAdvancedCustom, preference: 1, want: 2},
++		{name: "retry_keeps_lower_priority_failover", primaryPriority: 7, retry: 1, want: 1},
++		{name: "missing_preference", primaryPriority: 7, preference: 999, want: 2},
++	}
++	for _, memory := range []bool{false, true} {
++		for _, tt := range cases {
++			t.Run(fmt.Sprintf("memory_%t/%s", memory, tt.name), func(t *testing.T) {
++				require.NoError(t, DB.Exec("DELETE FROM abilities").Error)
++				require.NoError(t, DB.Exec("DELETE FROM channels").Error)
++				common.MemoryCacheEnabled = memory
++				for id := 1; id <= 2; id++ {
++					priority := int64(6)
++					modelName, group := "grok4.7", "default"
++					status, channelType := tt.preferredStatus, tt.preferredType
++					weight := uint(0)
++					if id == 2 {
++						priority, status, weight = tt.primaryPriority, tt.primaryStatus, 100
++						channelType = constant.ChannelTypeOpenAI
++						if tt.primaryModel != "" {
++							modelName = tt.primaryModel
++						}
++						if tt.primaryGroup != "" {
++							group = tt.primaryGroup
++						}
++					}
++					if status == 0 {
++						status = common.ChannelStatusEnabled
++					}
++					if channelType == 0 {
++						channelType = constant.ChannelTypeOpenAI
++					}
++					channel := &Channel{Id: id, Name: fmt.Sprintf("channel-%d", id), Key: "test-key", Type: channelType, Models: modelName, Group: group, Priority: &priority, Weight: &weight, Status: status}
++					if channelType == constant.ChannelTypeAdvancedCustom {
++						channel.SetOtherSettings(dto.ChannelOtherSettings{AdvancedCustom: &dto.AdvancedCustomConfig{Routes: []dto.AdvancedCustomRoute{{IncomingPath: "/v1/messages", UpstreamPath: "/v1/messages"}}}})
++					}
++					require.NoError(t, DB.Create(channel).Error)
++					require.NoError(t, DB.Create(&Ability{ChannelId: id, Group: group, Model: modelName, Enabled: status == common.ChannelStatusEnabled, Priority: &priority, Weight: weight}).Error)
++				}
++				InitChannelCache()
++				channel, err := GetRandomSatisfiedChannel("default", "grok4.7", tt.retry, "/v1/responses", tt.preference)
++				require.NoError(t, err)
++				require.NotNil(t, channel)
++				assert.Equal(t, tt.want, channel.Id)
++			})
++		}
++	}
++}
+diff --git a/model/channel_cache.go b/model/channel_cache.go
+index 86c5943..965a86f 100644
+--- a/model/channel_cache.go
++++ b/model/channel_cache.go
+@@ -111,10 +111,10 @@ func SyncChannelCache(frequency int) {
+ 	}
+ }
+ 
+-func GetRandomSatisfiedChannel(group string, model string, retry int, requestPath string) (*Channel, error) {
++func GetRandomSatisfiedChannel(group string, model string, retry int, requestPath string, preferredChannelID int) (*Channel, error) {
+ 	// if memory cache is disabled, get channel directly from database
+ 	if !common.MemoryCacheEnabled {
+-		return GetChannel(group, model, retry, requestPath)
++		return GetChannel(group, model, retry, requestPath, preferredChannelID)
+ 	}
+ 
+ 	channelSyncLock.RLock()
+@@ -132,6 +132,7 @@ func GetRandomSatisfiedChannel(group string, model string, retry int, requestPat
+ 	if len(channels) == 0 {
+ 		return nil, nil
+ 	}
++	channels = filterChannelsOutsideCooldown(channels, group, model)
+ 
+ 	if len(channels) == 1 {
+ 		if channel, ok := channelsIDM[channels[0]]; ok {
+@@ -177,6 +178,13 @@ func GetRandomSatisfiedChannel(group string, model string, retry int, requestPat
+ 		return nil, errors.New(fmt.Sprintf("no channel found, group: %s, model: %s, priority: %d", group, model, targetPriority))
+ 	}
+ 
++	// Affinity only breaks ties within the current eligible priority tier.
++	for _, channel := range targetChannels {
++		if channel.Id == preferredChannelID {
++			return channel, nil
++		}
++	}
++
+ 	// smoothing factor and adjustment
+ 	smoothingFactor := 1
+ 	smoothingAdjustment := 0
+diff --git a/model/channel_transient_failure.go b/model/channel_transient_failure.go
+new file mode 100644
+index 0000000..61e78a9
+--- /dev/null
++++ b/model/channel_transient_failure.go
+@@ -0,0 +1,89 @@
++package model
++
++import (
++	"sync"
++	"time"
++
++	"github.com/samber/hot"
++)
++
++const channelFailureWindow = 5 * time.Minute
++const channelCooldown = time.Minute
++
++type channelFailureRoute struct {
++	group, model string
++	channelID    int
++}
++
++type channelFailureState struct {
++	windowStart, cooldownUntil time.Time
++	count                      int
++}
++
++type channelFailureCircuit struct {
++	mu    sync.Mutex
++	cache *hot.HotCache[channelFailureRoute, channelFailureState]
++}
++
++func newChannelFailureCircuit() *channelFailureCircuit {
++	return &channelFailureCircuit{cache: hot.NewHotCache[channelFailureRoute, channelFailureState](hot.LRU, 10_000).
++		WithTTL(channelFailureWindow).Build()}
++}
++
++// shortcut: process-local cooldown resets on restart; share atomic state before running multiple core replicas.
++var channelFailures = newChannelFailureCircuit()
++
++func (c *channelFailureCircuit) record(route channelFailureRoute, status int, now time.Time) {
++	if route.group == "" || route.model == "" || route.channelID <= 0 || (status != 429 && (status < 500 || status > 599)) {
++		return
++	}
++	c.mu.Lock()
++	defer c.mu.Unlock()
++	state, found, _ := c.cache.Get(route)
++	if found && now.Before(state.cooldownUntil) {
++		return // In-flight failures must not extend a fixed cooldown.
++	}
++	if !found || !state.cooldownUntil.IsZero() || !now.Before(state.windowStart.Add(channelFailureWindow)) {
++		state = channelFailureState{windowStart: now}
++	}
++	state.count++
++	expires := state.windowStart.Add(channelFailureWindow)
++	if state.count >= 3 {
++		state.cooldownUntil = now.Add(channelCooldown)
++		expires = state.cooldownUntil
++	}
++	c.cache.SetWithTTL(route, state, expires.Sub(now))
++}
++
++func (c *channelFailureCircuit) reset(route channelFailureRoute) {
++	c.mu.Lock()
++	defer c.mu.Unlock()
++	c.cache.Delete(route)
++}
++
++func (c *channelFailureCircuit) cooling(route channelFailureRoute, now time.Time) bool {
++	state, found, _ := c.cache.Get(route)
++	return found && now.Before(state.cooldownUntil)
++}
++
++func RecordChannelTransientFailure(group, modelName string, channelID, status int) {
++	channelFailures.record(channelFailureRoute{group, modelName, channelID}, status, time.Now())
++}
++
++func ResetChannelTransientFailures(group, modelName string, channelID int) {
++	channelFailures.reset(channelFailureRoute{group, modelName, channelID})
++}
++
++func filterChannelsOutsideCooldown(channels []int, group, modelName string) []int {
++	now := time.Now()
++	filtered := make([]int, 0, len(channels))
++	for _, id := range channels {
++		if !channelFailures.cooling(channelFailureRoute{group, modelName, id}, now) {
++			filtered = append(filtered, id)
++		}
++	}
++	if len(filtered) == 0 {
++		return channels // Cooling is a preference; never remove the only available route.
++	}
++	return filtered
++}
+diff --git a/model/channel_transient_failure_test.go b/model/channel_transient_failure_test.go
+new file mode 100644
+index 0000000..682d4a1
+--- /dev/null
++++ b/model/channel_transient_failure_test.go
+@@ -0,0 +1,126 @@
++package model
++
++import (
++	"fmt"
++	"sync"
++	"testing"
++	"time"
++
++	"github.com/QuantumNous/new-api/common"
++	"github.com/QuantumNous/new-api/constant"
++	"github.com/glebarez/sqlite"
++	"github.com/stretchr/testify/require"
++	"gorm.io/gorm"
++)
++
++func TestChannelTransientFailureWindowAndCooldown(t *testing.T) {
++	c := newChannelFailureCircuit()
++	route := channelFailureRoute{"gemini", "gemini-test", 1}
++	now := time.Now()
++	for i := 0; i < 3; i++ {
++		c.record(route, 524, now.Add(time.Duration(i)*time.Second))
++		require.Equal(t, i == 2, c.cooling(route, now.Add(2*time.Second)))
++	}
++	for _, other := range []channelFailureRoute{{"other", route.model, 1}, {route.group, "other-model", 1}, {route.group, route.model, 2}} {
++		require.False(t, c.cooling(other, now.Add(2*time.Second)))
++	}
++	c.record(route, 524, now.Add(60*time.Second))
++	require.False(t, c.cooling(route, now.Add(62*time.Second)), "in-flight failures extended cooldown")
++	c.record(route, 524, now.Add(63*time.Second))
++	require.False(t, c.cooling(route, now.Add(63*time.Second)))
++	c.reset(route)
++	c.record(route, 429, now)
++	c.record(route, 500, now.Add(time.Second))
++	c.reset(route)
++	for i := 0; i < 2; i++ {
++		c.record(route, 503, now.Add(time.Duration(i+2)*time.Second))
++	}
++	require.False(t, c.cooling(route, now.Add(4*time.Second)), "success must reset the count")
++	c.record(route, 504, now.Add(4*time.Second))
++	require.True(t, c.cooling(route, now.Add(4*time.Second)))
++	c.reset(route)
++	require.False(t, c.cooling(route, now.Add(5*time.Second)), "success must also clear open cooldown")
++	for _, code := range []int{200, 400, 401, 403, 408} {
++		c.record(route, code, now)
++	}
++	c.record(route, 524, now)
++	c.record(route, 524, now.Add(time.Second))
++	c.record(route, 524, now.Add(channelFailureWindow))
++	require.False(t, c.cooling(route, now.Add(channelFailureWindow)), "window must be fixed, not sliding")
++}
++
++func TestChannelTransientFailureConcurrentCounting(t *testing.T) {
++	c := newChannelFailureCircuit()
++	route := channelFailureRoute{"default", "model", 1}
++	now := time.Now()
++	var wg sync.WaitGroup
++	for i := 0; i < 64; i++ {
++		wg.Add(1)
++		go func() { defer wg.Done(); c.record(route, 524, now) }()
++	}
++	wg.Wait()
++	state, found, err := c.cache.Get(route)
++	require.NoError(t, err)
++	require.True(t, found)
++	require.Equal(t, 3, state.count)
++	require.Equal(t, now.Add(channelCooldown), state.cooldownUntil)
++}
++
++func TestChannelTransientFailureRoutingBothCaches(t *testing.T) {
++	originalDB, originalMemory, originalCircuit := DB, common.MemoryCacheEnabled, channelFailures
++	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
++	require.NoError(t, err)
++	require.NoError(t, db.AutoMigrate(&Channel{}, &Ability{}))
++	DB = db
++	t.Cleanup(func() {
++		DB, common.MemoryCacheEnabled, channelFailures = originalDB, originalMemory, originalCircuit
++		if originalMemory && originalDB != nil {
++			InitChannelCache()
++		}
++		sqlDB, err := db.DB()
++		require.NoError(t, err)
++		require.NoError(t, sqlDB.Close())
++	})
++	for id := 1; id <= 2; id++ {
++		priority, weight := int64(30-id*10), uint(0)
++		require.NoError(t, db.Create(&Channel{Id: id, Name: fmt.Sprintf("synthetic-%d", id), Type: constant.ChannelTypeOpenAI,
++			Key: "synthetic-key", Models: "model-a,model-b", Group: "default,other", Status: common.ChannelStatusEnabled,
++			Priority: &priority, Weight: &weight}).Error)
++		for _, group := range []string{"default", "other"} {
++			for _, modelName := range []string{"model-a", "model-b"} {
++				require.NoError(t, db.Create(&Ability{Group: group, Model: modelName, ChannelId: id,
++					Enabled: true, Priority: &priority, Weight: weight}).Error)
++			}
++		}
++	}
++	for _, memory := range []bool{false, true} {
++		for _, path := range []string{"/v1/chat/completions", "/v1/responses", "/v1/messages", "/v1beta/models/model-a:generateContent"} {
++			t.Run(fmt.Sprintf("memory_%t/%s", memory, path), func(t *testing.T) {
++				channelFailures = newChannelFailureCircuit()
++				common.MemoryCacheEnabled = true
++				InitChannelCache()
++				common.MemoryCacheEnabled = memory
++				selectID := func(group, modelName string) int {
++					channel, err := GetRandomSatisfiedChannel(group, modelName, 0, path, 1)
++					require.NoError(t, err)
++					require.NotNil(t, channel)
++					return channel.Id
++				}
++				for i := 0; i < 2; i++ {
++					RecordChannelTransientFailure("default", "model-a", 1, 524)
++					require.Equal(t, 1, selectID("default", "model-a"))
++				}
++				RecordChannelTransientFailure("default", "model-a", 1, 524)
++				require.Equal(t, 2, selectID("default", "model-a"), "cooldown must override priority and affinity")
++				require.Equal(t, 1, selectID("other", "model-a"))
++				require.Equal(t, 1, selectID("default", "model-b"))
++				for i := 0; i < 3; i++ {
++					RecordChannelTransientFailure("default", "model-a", 2, 503)
++				}
++				require.Equal(t, 1, selectID("default", "model-a"), "all cooling must retain the original route")
++				ResetChannelTransientFailures("default", "model-a", 1)
++				require.Equal(t, 1, selectID("default", "model-a"))
++			})
++		}
++	}
++}
+diff --git a/service/channel_select.go b/service/channel_select.go
+index 0ab88dc..3cb536f 100644
+--- a/service/channel_select.go
++++ b/service/channel_select.go
+@@ -11,12 +11,13 @@ import (
+ )
+ 
+ type RetryParam struct {
+-	Ctx          *gin.Context
+-	TokenGroup   string
+-	ModelName    string
+-	RequestPath  string
+-	Retry        *int
+-	resetNextTry bool
++	Ctx                *gin.Context
++	TokenGroup         string
++	ModelName          string
++	RequestPath        string
++	PreferredChannelID int
++	Retry              *int
++	resetNextTry       bool
+ }
+ 
+ func (p *RetryParam) GetRetry() int {
+@@ -115,7 +116,7 @@ func CacheGetRandomSatisfiedChannel(param *RetryParam) (*model.Channel, string,
+ 			}
+ 			logger.LogDebug(param.Ctx, "Auto selecting group: %s, priorityRetry: %d", autoGroup, priorityRetry)
+ 
+-			channel, _ = model.GetRandomSatisfiedChannel(autoGroup, param.ModelName, priorityRetry, param.RequestPath)
++			channel, _ = model.GetRandomSatisfiedChannel(autoGroup, param.ModelName, priorityRetry, param.RequestPath, param.PreferredChannelID)
+ 			if channel == nil {
+ 				// Current group has no available channel for this model, try next group
+ 				// 当前分组没有该模型的可用渠道，尝试下一个分组
+@@ -153,7 +154,7 @@ func CacheGetRandomSatisfiedChannel(param *RetryParam) (*model.Channel, string,
+ 			break
+ 		}
+ 	} else {
+-		channel, err = model.GetRandomSatisfiedChannel(param.TokenGroup, param.ModelName, param.GetRetry(), param.RequestPath)
++		channel, err = model.GetRandomSatisfiedChannel(param.TokenGroup, param.ModelName, param.GetRetry(), param.RequestPath, param.PreferredChannelID)
+ 		if err != nil {
+ 			return nil, param.TokenGroup, err
+ 		}
+diff --git a/service/channel_select_auto_groups_test.go b/service/channel_select_auto_groups_test.go
+index e8454b3..8b2cb2b 100644
+--- a/service/channel_select_auto_groups_test.go
++++ b/service/channel_select_auto_groups_test.go
+@@ -104,11 +104,12 @@ func TestCacheGetRandomSatisfiedChannelUsesTokenAutoGroupsWhenGlobalAutoIsEmpty(
+ 
+ 	retry := 0
+ 	param := &RetryParam{
+-		Ctx:         ctx,
+-		TokenGroup:  "auto",
+-		ModelName:   modelName,
+-		RequestPath: "/v1/chat/completions",
+-		Retry:       &retry,
++		Ctx:                ctx,
++		TokenGroup:         "auto",
++		PreferredChannelID: 2102,
++		ModelName:          modelName,
++		RequestPath:        "/v1/chat/completions",
++		Retry:              &retry,
+ 	}
+ 
+ 	first, selectedGroup, err := CacheGetRandomSatisfiedChannel(param)

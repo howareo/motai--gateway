@@ -1,0 +1,72 @@
+{
+  "format_version": 1,
+  "phase": "S0-S6-isolated-candidate",
+  "captured_on": "2026-10-27",
+  "source": {
+    "upstream_repository": "https://github.com/QuantumNous/new-api",
+    "upstream_commit": "f116414284162ad15d8925f7bca494c109b83e93",
+    "archive_name": "production-source-base-20261025.tar.gz",
+    "archive_sha256": "1d0f0458e2b4b6f08483f6cac985fe470d7fbfaf7fad6a07c0d57419b9c71322",
+    "manifest_sha256": "9e8f2520415939129d5cf75e472a74d292930b017f44e432bd36c87400b20ade",
+    "baseline_exact_binary_verified": "96608fdbfcec3822951cbdc7ff37a0675ea078530a112ba55a2a725f8cfa79f1",
+    "license": "AGPL-3.0",
+    "license_sha256": "6f1e622c82a380075843bb084a7ec3b1f1d12a4a02526d75e78b0924a860aa75",
+    "public_archive": {
+      "path": "gateway/core/source/new-api-rc25-maintained.tar.gz",
+      "sha256": "9c9e192dd0d873edb0435d0511d42391f399904d21b3505758fa9dd3dbbf047c",
+      "manifest": "gateway/core/source/manifest.json",
+      "manifest_sha256": "5969f7eb46fc771d2a32844232aab338c6e9183c62b36970fe02133b3431e77a"
+    }
+  },
+  "live_baseline": {
+    "checked_on": "2026-10-27",
+    "container": "new-api-ops-shadow-new-api-1",
+    "pid": 2154370,
+    "started_at": "2026-10-25T10:32:03.085110541Z",
+    "version": "v1.0.0-rc.25-motai-cooldown.20261025",
+    "binary_sha256": "29f49d68273b46782119ebf08183a8b168aea841d9a98bebf4ff0b1eb40188b4",
+    "image_id": "sha256:1c242a76a49037d8b31c78cf3a7ce388ee054db0789b86ebdfeb208e86de6bbd"
+  },
+  "build": {
+    "go_version": "go1.25.1 linux/amd64",
+    "cgo_enabled": "0",
+    "go_mod_base_sha256": "011e0bfa7e4a2ef409f50aa8b85bd0016ef538416801105e08c3d78554357003",
+    "go_sum_base_sha256": "bc27f12d518bddce17918c9255d034e148f6e916905bfb2cb7bac16d41dd8d91",
+    "schema_library": "github.com/santhosh-tekuri/jsonschema/v5@v5.3.1",
+    "patch_series": "gateway/patches/series.json",
+    "overlay": "gateway/core/overlay",
+    "entrypoint": "./cmd/motai",
+    "production_replacement_ready": false
+  },
+  "candidate_evidence": {
+    "s2_report": "gateway/build/s2-lab-verification-20261027.json",
+    "s3_report": "gateway/build/s3-lab-verification-20261027.json",
+    "s4_report": "gateway/build/s4-lab-verification-20261027.json",
+    "normal_replay_binary_sha256": "ffc81599a24fe1a16d5d437e2ef16ae3fac9b9c6cbc15a30c6f8df6a2c08fdda",
+    "probe_lab_binary_sha256": "633b89a9fb337ceba020f15e01e769e2524b79d78178610532bff99b5ef6495b",
+    "build_manifest_sha256": "4e807d66605982fc53d06f88bc93cf03b0544a484e4763c12bfca08461df80c8",
+    "s5_report": "gateway/build/s5-lab-verification-20261027.json",
+    "strict_record_replay_binary_sha256": "3acf9c2a9778003f3480f1b3b0ac0c8e218d28db855194250cf9272db0e94af0",
+    "strict_record_build_manifest_sha256": "5f08e7c6f787de6781c810518e1ee6f720a542d9d2111450a7c8e6dd33ffeeaf",
+    "s6_report": "gateway/build/s6-lab-verification-20261027.json",
+    "s6_report_sha256": "a3fa938a1dbe399a65ca9b709373155a69ec3a750ac0e50b07af948f49e15d8e",
+    "s6_replay_binary_sha256": "adb03798b1c5144a1bde2482c275d1769841c08bddf5a84fa25d15b37b738bb0",
+    "s6_build_manifest": ".migration-private/motai-candidate-s6-evidence-20261027/http-final/final-build-manifest.json",
+    "s6_build_manifest_sha256": "86555b43b91ba2f6eb3848b51bedb07fd88573c6acabd5960d12419310f7bb7d",
+    "s6_overlay_manifest_sha256": "3919855b6a35b60121edeccb83e5331adad16104513892a3e8740ab5601d3a75",
+    "s6_schema_manifest_sha256": "d2785a4f66cd1983a457657ac10e0d9f9f04c33ec8c323a523362c00b50d23df",
+    "s6_contract_vectors_sha256": "990940d827e5e39dc1e09218e6fedc69a676b85d3500ee743a7d5e8997601f85",
+    "s6_build_manifest_visibility": "private-original",
+    "s6_public_build_manifest": "gateway/build/s6-build-manifest-20261027.json",
+    "s6_public_build_manifest_sha256": "fffcd48e9eb308016ed5969085ffd011474fbce72543148f79e44a4858abd8b5",
+    "s6_public_build_manifest_visibility": "sanitized-public-copy",
+    "final_report": "gateway/build/final-lab-verification-20261027.json",
+    "final_report_sha256": "f3cbdfaf5d8a0764af5212c80d4d00ab568e8fe869f90d202f6eb1e0b5408cfc",
+    "final_replay_binary_sha256": "c2024e4e2410c37be154f8144c2705bba3f0f5d954f0492848f7c2982a6bc0ce",
+    "final_public_build_manifest": "gateway/build/final-build-manifest-20261027.json",
+    "final_public_build_manifest_sha256": "26373574259c9d956669eb7d1b7fbff8bb3fd84bba626ca5f3a016179db0bbaf",
+    "final_overlay_manifest_sha256": "3207145ad46d8639ab329f9a17c49c371860f08a3761abb6b72bf5ca077e695a",
+    "final_contracts_manifest_sha256": "9f3807a80d05fde8c25828d2892025aea468f9a794d71db78f95945952003e8e",
+    "final_lock_hash_note": "The final build records candidate-lock input bytes before these evidence pointers were added; source and build settings are unchanged."
+  }
+}

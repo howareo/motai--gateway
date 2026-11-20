@@ -1,0 +1,463 @@
+{
+  "fixture_version": 1,
+  "samples": {
+    "status": {
+      "format_version": 1,
+      "build_id": "synthetic-build",
+      "ready": true,
+      "desired_gen": "9007199254740993",
+      "committed_gen": "9007199254740993",
+      "serving_gen": "9007199254740993",
+      "lkg_gen": "9007199254740993",
+      "degraded_reasons": [],
+      "in_flight": 0,
+      "completion_pending": 0,
+      "completion_capacity": 256,
+      "latest_seq": "9007199254740995",
+      "referenced_gens": [
+        "9007199254740993"
+      ]
+    },
+    "activate_request": {
+      "format_version": 1,
+      "gen": "9007199254740993",
+      "manifest_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "base_committed_gen": "9007199254740992"
+    },
+    "activate_response": {
+      "format_version": 1,
+      "gen": "9007199254740993",
+      "manifest_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "committed_gen": "9007199254740993",
+      "serving_gen": "9007199254740993"
+    },
+    "events_query": {
+      "after_seq": "0",
+      "limit": 200
+    },
+    "events_page": {
+      "format_version": 1,
+      "events": [
+        {
+          "format_version": 1,
+          "seq": "9007199254740995",
+          "event_type": "attempt_terminal",
+          "attempt": {
+            "format_version": 1,
+            "intent": {
+              "format_version": 1,
+              "source": "motai",
+              "request_id": "00000000-0000-4000-8000-000000000001",
+              "attempt_id": "00000000-0000-4000-8000-000000000002",
+              "kind": "model",
+              "gen": "9007199254740993",
+              "pool_epoch": "9007199254740994",
+              "caller_id": "caller-codex",
+              "channel_id": "1022",
+              "channel_name": "Synthetic upstream",
+              "pool_id": "pool-main",
+              "model_requested": "friendly-alias",
+              "model_canonical": "Model/Case-Sensitive",
+              "model_upstream": "Provider/Model",
+              "vendor": "openai",
+              "protocol": "responses",
+              "stream": true,
+              "effort": {
+                "value": "xhigh",
+                "source": "request"
+              },
+              "thinking_budget": null,
+              "started_at": "2026-10-25T16:00:00.123456789Z",
+              "route_reason": "affinity_caller",
+              "credential_ref": "upstream-main",
+              "credential_version": "2",
+              "affinity": {
+                "scope": "caller",
+                "digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+              },
+              "attempt_no": 1
+            },
+            "terminal": {
+              "format_version": 1,
+              "attempt_id": "00000000-0000-4000-8000-000000000002",
+              "ended_at": "2026-10-25T16:00:01.123456789Z",
+              "duration_ms": 1000,
+              "ttft_ms": 100,
+              "request_outcome": "succeeded",
+              "attempt_outcome": "succeeded",
+              "send_certainty": "full",
+              "upstream_status": 200,
+              "protocol_terminal": "completed",
+              "client_bytes": 400,
+              "error_class": null,
+              "channel_effect": "success_reset",
+              "usage": {
+                "format_version": 1,
+                "normalizer_version": "1",
+                "provider": "openai",
+                "total_input": {
+                  "value": 100,
+                  "availability": "known",
+                  "completeness": "final",
+                  "provenance": "provider"
+                },
+                "input_uncached": {
+                  "value": 60,
+                  "availability": "known",
+                  "completeness": "final",
+                  "provenance": "derived"
+                },
+                "cache_read": {
+                  "value": 40,
+                  "availability": "known",
+                  "completeness": "final",
+                  "provenance": "provider"
+                },
+                "output_total": {
+                  "value": 25,
+                  "availability": "known",
+                  "completeness": "final",
+                  "provenance": "provider"
+                },
+                "reasoning": {
+                  "value": 5,
+                  "availability": "known",
+                  "completeness": "final",
+                  "provenance": "provider"
+                },
+                "cache_write": {
+                  "ttl_5m": {
+                    "value": 0,
+                    "availability": "known",
+                    "completeness": "final",
+                    "provenance": "derived"
+                  },
+                  "ttl_1h": {
+                    "value": 0,
+                    "availability": "known",
+                    "completeness": "final",
+                    "provenance": "derived"
+                  },
+                  "ttl_unknown": {
+                    "value": 0,
+                    "availability": "known",
+                    "completeness": "final",
+                    "provenance": "derived"
+                  }
+                },
+                "reasoning_relation": "subset_of_output",
+                "provider_counts": {
+                  "openai_input_tokens": 100,
+                  "openai_output_tokens": 25,
+                  "openai_cached_tokens": 40,
+                  "openai_reasoning_tokens": 5
+                },
+                "issues": []
+              }
+            }
+          }
+        }
+      ],
+      "next_seq": "9007199254740995",
+      "latest_seq": "9007199254740995",
+      "has_more": false
+    },
+    "attempts_query": {
+      "from": "2026-10-24T16:00:00Z",
+      "to": "2026-10-25T16:00:00Z",
+      "channel_id": null,
+      "pool_id": null,
+      "model_id": null,
+      "kind": null,
+      "outcomes": [],
+      "snapshot_seq": null,
+      "cursor": null,
+      "limit": 50
+    },
+    "attempts_page": {
+      "format_version": 1,
+      "attempts": [
+        {
+          "format_version": 1,
+          "intent": {
+            "format_version": 1,
+            "source": "motai",
+            "request_id": "00000000-0000-4000-8000-000000000001",
+            "attempt_id": "00000000-0000-4000-8000-000000000002",
+            "kind": "model",
+            "gen": "9007199254740993",
+            "pool_epoch": "9007199254740994",
+            "caller_id": "caller-codex",
+            "channel_id": "1022",
+            "channel_name": "Synthetic upstream",
+            "pool_id": "pool-main",
+            "model_requested": "friendly-alias",
+            "model_canonical": "Model/Case-Sensitive",
+            "model_upstream": "Provider/Model",
+            "vendor": "openai",
+            "protocol": "responses",
+            "stream": true,
+            "effort": {
+              "value": "xhigh",
+              "source": "request"
+            },
+            "thinking_budget": null,
+            "started_at": "2026-10-25T16:00:00.123456789Z",
+            "route_reason": "affinity_caller",
+            "credential_ref": "upstream-main",
+            "credential_version": "2",
+            "affinity": {
+              "scope": "caller",
+              "digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+            },
+            "attempt_no": 1
+          },
+          "terminal": {
+            "format_version": 1,
+            "attempt_id": "00000000-0000-4000-8000-000000000002",
+            "ended_at": "2026-10-25T16:00:01.123456789Z",
+            "duration_ms": 1000,
+            "ttft_ms": 100,
+            "request_outcome": "succeeded",
+            "attempt_outcome": "succeeded",
+            "send_certainty": "full",
+            "upstream_status": 200,
+            "protocol_terminal": "completed",
+            "client_bytes": 400,
+            "error_class": null,
+            "channel_effect": "success_reset",
+            "usage": {
+              "format_version": 1,
+              "normalizer_version": "1",
+              "provider": "openai",
+              "total_input": {
+                "value": 100,
+                "availability": "known",
+                "completeness": "final",
+                "provenance": "provider"
+              },
+              "input_uncached": {
+                "value": 60,
+                "availability": "known",
+                "completeness": "final",
+                "provenance": "derived"
+              },
+              "cache_read": {
+                "value": 40,
+                "availability": "known",
+                "completeness": "final",
+                "provenance": "provider"
+              },
+              "output_total": {
+                "value": 25,
+                "availability": "known",
+                "completeness": "final",
+                "provenance": "provider"
+              },
+              "reasoning": {
+                "value": 5,
+                "availability": "known",
+                "completeness": "final",
+                "provenance": "provider"
+              },
+              "cache_write": {
+                "ttl_5m": {
+                  "value": 0,
+                  "availability": "known",
+                  "completeness": "final",
+                  "provenance": "derived"
+                },
+                "ttl_1h": {
+                  "value": 0,
+                  "availability": "known",
+                  "completeness": "final",
+                  "provenance": "derived"
+                },
+                "ttl_unknown": {
+                  "value": 0,
+                  "availability": "known",
+                  "completeness": "final",
+                  "provenance": "derived"
+                }
+              },
+              "reasoning_relation": "subset_of_output",
+              "provider_counts": {
+                "openai_input_tokens": 100,
+                "openai_output_tokens": 25,
+                "openai_cached_tokens": 40,
+                "openai_reasoning_tokens": 5
+              },
+              "issues": []
+            }
+          }
+        }
+      ],
+      "snapshot_seq": "9007199254740995",
+      "next_cursor": null,
+      "has_more": false
+    },
+    "stats_query": {
+      "from": "2026-10-24T16:00:00Z",
+      "to": "2026-10-25T16:00:00Z",
+      "channel_id": null,
+      "pool_id": null,
+      "model_id": null,
+      "kind": null,
+      "outcomes": [],
+      "snapshot_seq": null
+    },
+    "stats_response": {
+      "format_version": 1,
+      "from": "2026-10-24T16:00:00Z",
+      "to": "2026-10-25T16:00:00Z",
+      "snapshot_seq": "9007199254740995",
+      "counts": {
+        "requests": 1,
+        "attempts": 1,
+        "requests_succeeded": 1,
+        "probes": 0,
+        "probes_succeeded": 0
+      },
+      "tokens": {
+        "total_input": 100,
+        "input_uncached": 60,
+        "cache_read": 40,
+        "cache_write_5m": 0,
+        "cache_write_1h": 0,
+        "cache_write_unknown": 0,
+        "output_total": 25,
+        "reasoning": 5
+      },
+      "coverage": {
+        "attempts": 1,
+        "usage_known": 1,
+        "usage_partial": 0,
+        "usage_unknown": 0,
+        "estimated": 0
+      },
+      "buckets": []
+    },
+    "models_request": {
+      "format_version": 1
+    },
+    "models_response": {
+      "format_version": 1,
+      "models": [
+        {
+          "id": "Model/Case-Sensitive",
+          "capabilities": [
+            "responses"
+          ]
+        }
+      ],
+      "observed_at": "2026-10-25T16:00:00Z"
+    },
+    "preview_request": {
+      "format_version": 1,
+      "base_url": "https://upstream.invalid/v1",
+      "credential": null,
+      "channel_id": "1022",
+      "capabilities": [
+        "responses"
+      ]
+    },
+    "probe_request": {
+      "format_version": 1,
+      "source": "manual",
+      "channel_id": "1022",
+      "model_id": "Model/Case-Sensitive",
+      "protocol": "responses",
+      "client_run_id": "00000000-0000-4000-8000-000000000001"
+    },
+    "probe_response": {
+      "format_version": 1,
+      "client_run_id": "00000000-0000-4000-8000-000000000001",
+      "request_id": "00000000-0000-4000-8000-000000000001",
+      "attempt_id": "00000000-0000-4000-8000-000000000002",
+      "state": "completed"
+    },
+    "operation_request": {
+      "format_version": 1,
+      "operation_id": "00000000-0000-4000-8000-000000000001"
+    },
+    "affinity_reset_response": {
+      "format_version": 1,
+      "operation_id": "00000000-0000-4000-8000-000000000001",
+      "pool_id": "pool-main",
+      "pool_epoch": "9007199254740995"
+    },
+    "drain_response": {
+      "format_version": 1,
+      "operation_id": "00000000-0000-4000-8000-000000000001",
+      "accepting": false,
+      "in_flight": 1,
+      "completion_pending": 0
+    },
+    "billing_probe_response": {
+      "format_version": 1,
+      "channel_id": "1022",
+      "state": "known",
+      "multiplier": 0.1,
+      "source": "management_api",
+      "observed_at": "2026-10-25T16:00:00Z",
+      "upstream_group": "gemini_group"
+    },
+    "wallet_probe_response": {
+      "format_version": 1,
+      "channel_id": "1022",
+      "state": "unknown",
+      "balance": null,
+      "currency": null,
+      "source": "unavailable",
+      "observed_at": "2026-10-25T16:00:00Z"
+    },
+    "error_response": {
+      "format_version": 1,
+      "error": {
+        "code": "gateway_log_unavailable",
+        "message": "Gateway storage is unavailable.",
+        "retryable": true,
+        "details": {
+          "gen": null,
+          "retry_after_seconds": null
+        }
+      }
+    },
+    "channel_health_response": {
+      "format_version": 1,
+      "gen": "9007199254740993",
+      "channels": [
+        {
+          "channel_id": "0001",
+          "credential_version": "9007199254740994",
+          "state": "exhausted",
+          "state_version": "9007199254740995",
+          "observed_at": "2026-10-27T01:00:00Z"
+        },
+        {
+          "channel_id": "local-channel",
+          "credential_version": null,
+          "state": "available",
+          "state_version": "0",
+          "observed_at": null
+        }
+      ]
+    },
+    "health_reset_request": {
+      "format_version": 1,
+      "operation_id": "00000000-0000-4000-8000-000000000001",
+      "expected_gen": "9007199254740993",
+      "expected_credential_version": "9007199254740994",
+      "expected_state_version": "9007199254740995"
+    },
+    "health_reset_response": {
+      "format_version": 1,
+      "operation_id": "00000000-0000-4000-8000-000000000001",
+      "channel_id": "0001",
+      "credential_version": "9007199254740994",
+      "state": "available",
+      "state_version": "9007199254740996",
+      "changed": true
+    }
+  }
+}

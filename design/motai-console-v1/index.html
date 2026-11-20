@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,interactive-widget=resizes-content">
+  <meta name="color-scheme" content="dark">
+  <title>墨台 · 交互设计定稿</title>
+  <link rel="icon" href="/motai-mark.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <a href="#main" class="skip-link">跳到主要内容</a>
+  <header class="topbar">
+    <a class="brand" href="#overview" aria-label="墨台首页"><img src="/motai-mark.svg" width="30" height="30" alt=""><strong>墨台<span>INKBENCH</span></strong></a>
+    <nav class="navigation" aria-label="主要导航">
+      <button data-page="overview" aria-current="page"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>概览</button>
+      <button data-page="channels"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h17m-4-4 4 4-4 4M21 17H4m4-4-4 4 4 4"/></svg>渠道</button>
+      <button data-page="pricing"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 9 9-9 9-9-9 9-9Z"/><circle cx="12" cy="12" r="2"/></svg>价格</button>
+      <button data-page="requests"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M8 5h13M8 12h13M8 19h13M3 5h.01M3 12h.01M3 19h.01"/></svg>请求</button>
+      <button data-page="settings"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h7m4 0h7M3 18h7m4 0h7M10 3v6m4 6v6"/></svg>设置</button>
+    </nav>
+    <div class="top-actions"><span class="demo-label">演示数据</span><button id="refresh" class="icon-button" aria-label="刷新当前页面"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7v5h-5M4 17v-5h5M5.2 8a7.5 7.5 0 0 1 12.4-3L20 8M4 16l2.4 3A7.5 7.5 0 0 0 19 16"/></svg></button></div>
+  </header>
+  <main id="main" tabindex="-1"></main>
+  <dialog id="editor" class="editor" aria-labelledby="editor-title">
+    <form id="editor-form" novalidate>
+      <header class="dialog-heading"><div><span class="eyebrow">渠道管理</span><h2 id="editor-title">新增渠道</h2></div><button type="button" class="icon-button" data-action="close-editor" aria-label="关闭渠道编辑器">×</button></header>
+      <div class="editor-tabs" role="tablist" aria-label="渠道编辑页签">
+        <button type="button" role="tab" id="tab-basic" aria-controls="panel-basic" aria-selected="true" data-tab="basic">基本信息</button>
+        <button type="button" role="tab" id="tab-models" aria-controls="panel-models" aria-selected="false" tabindex="-1" data-tab="models">模型与路由</button>
+        <button type="button" role="tab" id="tab-billing" aria-controls="panel-billing" aria-selected="false" tabindex="-1" data-tab="billing">价格与余额</button>
+      </div>
+      <div class="editor-body">
+        <section id="panel-basic" role="tabpanel" aria-labelledby="tab-basic"></section>
+        <section id="panel-models" role="tabpanel" aria-labelledby="tab-models" hidden></section>
+        <section id="panel-billing" role="tabpanel" aria-labelledby="tab-billing" hidden></section>
+      </div>
+      <footer class="editor-footer"><span id="editor-status" role="status">新渠道默认停用</span><div><button class="button" type="button" data-action="close-editor">取消</button><button class="button primary" id="save-channel" type="submit">保存渠道</button></div></footer>
+    </form>
+  </dialog>
+  <dialog id="discard" class="compact-dialog" aria-labelledby="discard-title"><h2 id="discard-title">放弃这次修改？</h2><p>未保存的内容会被丢弃。</p><div class="dialog-actions"><button class="button" id="keep-editing">继续编辑</button><button class="button danger" id="discard-changes">放弃修改</button></div></dialog>
+  <dialog id="detail" class="detail-dialog" aria-labelledby="detail-title"><div class="dialog-heading"><h2 id="detail-title">请求详情</h2><button class="icon-button" id="close-detail" aria-label="关闭请求详情">×</button></div><div id="detail-body"></div></dialog>
+  <div id="announcer" class="sr-only" role="status" aria-live="polite"></div>
+  <div id="toast" aria-hidden="true" class="toast" hidden><span>✓</span><span id="toast-text"></span></div>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>

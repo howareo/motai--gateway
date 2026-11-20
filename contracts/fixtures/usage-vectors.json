@@ -1,0 +1,1205 @@
+{
+  "fixture_version": 1,
+  "vectors": [
+    {
+      "id": "openai_inclusive",
+      "evidence": "synthetic_contract",
+      "provider": "openai",
+      "provider_counts": {
+        "openai_input_tokens": 100,
+        "openai_output_tokens": 25,
+        "openai_cached_tokens": 40,
+        "openai_reasoning_tokens": 5
+      },
+      "partial": false,
+      "expected": {
+        "format_version": 1,
+        "normalizer_version": "1",
+        "provider": "openai",
+        "total_input": {
+          "value": 100,
+          "availability": "known",
+          "completeness": "final",
+          "provenance": "provider"
+        },
+        "input_uncached": {
+          "value": 60,
+          "availability": "known",
+          "completeness": "final",
+          "provenance": "derived"
+        },
+        "cache_read": {
+          "value": 40,
+          "availability": "known",
+          "completeness": "final",
+          "provenance": "provider"
+        },
+        "output_total": {
+          "value": 25,
+          "availability": "known",
+          "completeness": "final",
+          "provenance": "provider"
+        },
+        "reasoning": {
+          "value": 5,
+          "availability": "known",
+          "completeness": "final",
+          "provenance": "provider"
+        },
+        "cache_write": {
+          "ttl_5m": {
+            "value": 0,
+            "availability": "known",
+            "completeness": "final",
+            "provenance": "derived"
+          },
+          "ttl_1h": {
+            "value": 0,
+            "availability": "known",
+            "completeness": "final",
+            "provenance": "derived"
+          },
+          "ttl_unknown": {
+            "value": 0,
+            "availability": "known",
+            "completeness": "final",
+            "provenance": "derived"
+          }
+        },
+        "reasoning_relation": "subset_of_output",
+        "provider_counts": {
+          "openai_input_tokens": 100,
+          "openai_output_tokens": 25,
+          "openai_cached_tokens": 40,
+          "openai_reasoning_tokens": 5
+        },
+        "issues": []
+      }
+    },
+    {
+      "id": "openai_explicit_zero",
+      "evidence": "synthetic_contract",
+      "provider": "openai",
+      "provider_counts": {
+        "openai_input_tokens": 0,
+        "openai_output_tokens": 0,
+        "openai_cached_tokens": 0,
+        "openai_reasoning_tokens": 0
+      },
+      "partial": false,
+      "expected": {
+        "format_version": 1,
+        "normalizer_version": "1",
+        "provider": "openai",
+        "total_input": {
+          "value": 0,
+          "availability": "known",
+          "completeness": "final",
+          "provenance": "provider"
+        },
+        "input_uncached": {
+          "value": 0,
+          "availability": "known",
+          "completeness": "final",
+          "provenance": "derived"
+        },
+        "cache_read": {
+          "value": 0,
+          "availability": "known",
+          "completeness": "final",
+          "provenance": "provider"
+        },
+        "output_total": {
+          "value": 0,
+          "availability": "known",
+          "completeness": "final",
+          "provenance": "provider"
+        },
+        "reasoning": {
+          "value": 0,
+          "availability": "known",
+          "completeness": "final",
+          "provenance": "provider"
+        },
+        "cache_write": {
+          "ttl_5m": {
+            "value": 0,
+            "availability": "known",
+            "completeness": "final",
+            "provenance": "derived"
+          },
+          "ttl_1h": {
+            "value": 0,
+            "availability": "known",
+            "completeness": "final",
+            "provenance": "derived"
+          },
+          "ttl_unknown": {
+            "value": 0,
+            "availability": "known",
+            "completeness": "final",
+            "provenance": "derived"
+          }
+        },
+        "reasoning_relation": "subset_of_output",
+        "provider_counts": {
+          "openai_input_tokens": 0,
+          "openai_output_tokens": 0,
+          "openai_cached_tokens": 0,
+          "openai_reasoning_tokens": 0
+        },
+        "issues": []
+      }
+    },
+    {
+      "id": "openai_cache_absent",
+      "evidence": "synthetic_contract",
+      "provider": "openai",
+      "provider_counts": {
+        "openai_input_tokens": 100,
+        "openai_output_tokens": 25
+      },
+      "partial": false,
+      "expected": {
+        "format_version": 1,
+        "normalizer_version": "1",
+        "provider": "openai",
+        "total_input": {
+          "value": 100,
+          "availability": "known",
+          "completeness": "final",
+          "provenance": "provider"
+        },
+        "input_uncached": {
+          "value": null,
+          "availability": "absent",
+          "completeness": "final",
+          "provenance": "absent"
+        },
+        "cache_read": {
+          "value": null,
+          "availability": "absent",
+          "completeness": "final",
+          "provenance": "absent"
+        },
+        "output_total": {
+          "value": 25,
+          "availability": "known",
+          "completeness": "final",
+          "provenance": "provider"
+        },
+        "reasoning": {
+          "value": null,
+          "availability": "absent",
+          "completeness": "final",
+          "provenance": "absent"
+        },
+        "cache_write": {
+          "ttl_5m": {
+            "value": 0,
+            "availability": "known",
+            "completeness": "final",
+            "provenance": "derived"
+          },
+          "ttl_1h": {
+            "value": 0,
+            "availability": "known",
+            "completeness": "final",
+            "provenance": "derived"
+          },
+          "ttl_unknown": {
+            "value": 0,
+            "availability": "known",
+            "completeness": "final",
+            "provenance": "derived"
+          }
+        },
+        "reasoning_relation": "subset_of_output",
+        "provider_counts": {
+          "openai_input_tokens": 100,
+          "openai_output_tokens": 25
+        },
+        "issues": [
+          "cache_read_missing"
+        ]
+      }
+    },
+    {
+      "id": "openai_cache_contradiction_preserves_output",
+      "evidence": "synthetic_contract",
+      "provider": "openai",
+      "provider_counts": {
+        "openai_input_tokens": 10,
+        "openai_output_tokens": 25,
+        "openai_cached_tokens": 40
+      },
+      "partial": false,
+      "expected": {
+        "format_version": 1,
+        "normalizer_version": "1",
+        "provider": "openai",
+        "total_input": {
+          "value": 10,
+          "availability": "known",
+          "completeness": "final",
+          "provenance": "provider"
+        },
+        "input_uncached": {
+          "value": null,
+          "availability": "absent",
+          "completeness": "final",
+          "provenance": "absent"
+        },
+        "cache_read": {
+          "value": 40,
+          "availability": "known",
+          "completeness": "final",
+          "provenance": "provider"
+        },
+        "output_total": {
+          "value": 25,
+          "availability": "known",
+          "completeness": "final",
+          "provenance": "provider"
+        },
+        "reasoning": {
+          "value": null,
+          "availability": "absent",
+          "completeness": "final",
+          "provenance": "absent"
+        },
+        "cache_write": {
+          "ttl_5m": {
+            "value": 0,
+            "availability": "known",
+            "completeness": "final",
+            "provenance": "derived"
+          },
+          "ttl_1h": {
+            "value": 0,
+            "availability": "known",
+            "completeness": "final",
+            "provenance": "derived"
+          },
+          "ttl_unknown": {
+            "value": 0,
+            "availability": "known",
+            "completeness": "final",
+            "provenance": "derived"
+          }
+        },
+        "reasoning_relation": "subset_of_output",
+        "provider_counts": {
+          "openai_input_tokens": 10,
+          "openai_output_tokens": 25,
+          "openai_cached_tokens": 40
+        },
+        "issues": [
+          "cache_exceeds_input"
+        ]
+      }
+    },
+    {
+      "id": "openai_failed_partial_keeps_known",
+      "evidence": "synthetic_contract",
+      "provider": "openai",
+      "provider_counts": {
+        "openai_input_tokens": 100,
+        "openai_output_tokens": 7,
+        "openai_cached_tokens": 20
+      },
+      "partial": true,
+      "expected": {
+        "format_version": 1,
+        "normalizer_version": "1",
+        "provider": "openai",
+        "total_input": {
+          "value": 100,
+          "availability": "known",
+          "completeness": "partial",
+          "provenance": "provider"
+        },
+        "input_uncached": {
+          "value": 80,
+          "availability": "known",
+          "completeness": "partial",
+          "provenance": "derived"
+        },
+        "cache_read": {
+          "value": 20,
+          "availability": "known",
+          "completeness": "partial",
+          "provenance": "provider"
+        },
+        "output_total": {
+          "value": 7,
+          "availability": "known",
+          "completeness": "partial",
+          "provenance": "provider"
+        },
+        "reasoning": {
+          "value": null,
+          "availability": "absent",
+          "completeness": "partial",
+          "provenance": "absent"
+        },
+        "cache_write": {
+          "ttl_5m": {
+            "value": 0,
+            "availability": "known",
+            "completeness": "partial",
+            "provenance": "derived"
+          },
+          "ttl_1h": {
+            "value": 0,
+            "availability": "known",
+            "completeness": "partial",
+            "provenance": "derived"
+          },
+          "ttl_unknown": {
+            "value": 0,
+            "availability": "known",
+            "completeness": "partial",
+            "provenance": "derived"
+          }
+        },
+        "reasoning_relation": "subset_of_output",
+        "provider_counts": {
+          "openai_input_tokens": 100,
+          "openai_output_tokens": 7,
+          "openai_cached_tokens": 20
+        },
+        "issues": [
+          "usage_partial"
+        ]
+      }
+    },
+    {
+      "id": "openai_usage_missing",
+      "evidence": "synthetic_contract",
+      "provider": "openai",
+      "provider_counts": {},
+      "partial": false,
+      "expected": {
+        "format_version": 1,
+        "normalizer_version": "1",
+        "provider": "openai",
+        "total_input": {
+          "value": null,
+          "availability": "absent",
+          "completeness": "final",
+          "provenance": "absent"
+        },
+        "input_uncached": {
+          "value": null,
+          "availability": "absent",
+          "completeness": "final",
+          "provenance": "absent"
+        },
+        "cache_read": {
+          "value": null,
+          "availability": "absent",
+          "completeness": "final",
+          "provenance": "absent"
+        },
+        "output_total": {
+          "value": null,
+          "availability": "absent",
+          "completeness": "final",
+          "provenance": "absent"
+        },
+        "reasoning": {
+          "value": null,
+          "availability": "absent",
+          "completeness": "final",
+          "provenance": "absent"
+        },
+        "cache_write": {
+          "ttl_5m": {
+            "value": 0,
+            "availability": "known",
+            "completeness": "final",
+            "provenance": "derived"
+          },
+          "ttl_1h": {
+            "value": 0,
+            "availability": "known",
+            "completeness": "final",
+            "provenance": "derived"
+          },
+          "ttl_unknown": {
+            "value": 0,
+            "availability": "known",
+            "completeness": "final",
+            "provenance": "derived"
+          }
+        },
+        "reasoning_relation": "subset_of_output",
+        "provider_counts": {},
+        "issues": [
+          "usage_missing",
+          "input_missing",
+          "output_missing",
+          "cache_read_missing"
+        ]
+      }
+    },
+    {
+      "id": "anthropic_additive_ttl_mix",
+      "evidence": "synthetic_contract",
+      "provider": "anthropic",
+      "provider_counts": {
+        "anthropic_input_tokens": 10,
+        "anthropic_output_tokens": 20,
+        "anthropic_cache_read_input_tokens": 30,
+        "anthropic_cache_creation_input_tokens": 40,
+        "anthropic_cache_creation_5m_tokens": 15,
+        "anthropic_cache_creation_1h_tokens": 20
+      },
+      "partial": false,
+      "expected": {
+        "format_version": 1,
+        "normalizer_version": "1",
+        "provider": "anthropic",
+        "total_input": {
+          "value": 80,
+          "availability": "known",
+          "completeness": "final",
+          "provenance": "derived"
+        },
+        "input_uncached": {
+          "value": 10,
+          "availability": "known",
+          "completeness": "final",
+          "provenance": "provider"
+        },
+        "cache_read": {
+          "value": 30,
+          "availability": "known",
+          "completeness": "final",
+          "provenance": "provider"
+        },
+        "output_total": {
+          "value": 20,
+          "availability": "known",
+          "completeness": "final",
+          "provenance": "provider"
+        },
+        "reasoning": {
+          "value": null,
+          "availability": "absent",
+          "completeness": "final",
+          "provenance": "absent"
+        },
+        "cache_write": {
+          "ttl_5m": {
+            "value": 15,
+            "availability": "known",
+            "completeness": "final",
+            "provenance": "provider"
+          },
+          "ttl_1h": {
+            "value": 20,
+            "availability": "known",
+            "completeness": "final",
+            "provenance": "provider"
+          },
+          "ttl_unknown": {
+            "value": 5,
+            "availability": "known",
+            "completeness": "final",
+            "provenance": "derived"
+          }
+        },
+        "reasoning_relation": "unknown",
+        "provider_counts": {
+          "anthropic_input_tokens": 10,
+          "anthropic_output_tokens": 20,
+          "anthropic_cache_read_input_tokens": 30,
+          "anthropic_cache_creation_input_tokens": 40,
+          "anthropic_cache_creation_5m_tokens": 15,
+          "anthropic_cache_creation_1h_tokens": 20
+        },
+        "issues": []
+      }
+    },
+    {
+      "id": "anthropic_unknown_ttl_is_separate",
+      "evidence": "synthetic_contract",
+      "provider": "anthropic",
+      "provider_counts": {
+        "anthropic_input_tokens": 10,
+        "anthropic_output_tokens": 20,
+        "anthropic_cache_read_input_tokens": 30,
+        "anthropic_cache_creation_input_tokens": 40
+      },
+      "partial": false,
+      "expected": {
+        "format_version": 1,
+        "normalizer_version": "1",
+        "provider": "anthropic",
+        "total_input": {
+          "value": 80,
+          "availability": "known",
+          "completeness": "final",
+          "provenance": "derived"
+        },
+        "input_uncached": {
+          "value": 10,
+          "availability": "known",
+          "completeness": "final",
+          "provenance": "provider"
+        },
+        "cache_read": {
+          "value": 30,
+          "availability": "known",
+          "completeness": "final",
+          "provenance": "provider"
+        },
+        "output_total": {
+          "value": 20,
+          "availability": "known",
+          "completeness": "final",
+          "provenance": "provider"
+        },
+        "reasoning": {
+          "value": null,
+          "availability": "absent",
+          "completeness": "final",
+          "provenance": "absent"
+        },
+        "cache_write": {
+          "ttl_5m": {
+            "value": 0,
+            "availability": "known",
+            "completeness": "final",
+            "provenance": "derived"
+          },
+          "ttl_1h": {
+            "value": 0,
+            "availability": "known",
+            "completeness": "final",
+            "provenance": "derived"
+          },
+          "ttl_unknown": {
+            "value": 40,
+            "availability": "known",
+            "completeness": "final",
+            "provenance": "derived"
+          }
+        },
+        "reasoning_relation": "unknown",
+        "provider_counts": {
+          "anthropic_input_tokens": 10,
+          "anthropic_output_tokens": 20,
+          "anthropic_cache_read_input_tokens": 30,
+          "anthropic_cache_creation_input_tokens": 40
+        },
+        "issues": []
+      }
+    },
+    {
+      "id": "anthropic_explicit_zero",
+      "evidence": "synthetic_contract",
+      "provider": "anthropic",
+      "provider_counts": {
+        "anthropic_input_tokens": 0,
+        "anthropic_output_tokens": 0,
+        "anthropic_cache_read_input_tokens": 0,
+        "anthropic_cache_creation_input_tokens": 0
+      },
+      "partial": false,
+      "expected": {
+        "format_version": 1,
+        "normalizer_version": "1",
+        "provider": "anthropic",
+        "total_input": {
+          "value": 0,
+          "availability": "known",
+          "completeness": "final",
+          "provenance": "derived"
+        },
+        "input_uncached": {
+          "value": 0,
+          "availability": "known",
+          "completeness": "final",
+          "provenance": "provider"
+        },
+        "cache_read": {
+          "value": 0,
+          "availability": "known",
+          "completeness": "final",
+          "provenance": "provider"
+        },
+        "output_total": {
+          "value": 0,
+          "availability": "known",
+          "completeness": "final",
+          "provenance": "provider"
+        },
+        "reasoning": {
+          "value": null,
+          "availability": "absent",
+          "completeness": "final",
+          "provenance": "absent"
+        },
+        "cache_write": {
+          "ttl_5m": {
+            "value": 0,
+            "availability": "known",
+            "completeness": "final",
+            "provenance": "derived"
+          },
+          "ttl_1h": {
+            "value": 0,
+            "availability": "known",
+            "completeness": "final",
+            "provenance": "derived"
+          },
+          "ttl_unknown": {
+            "value": 0,
+            "availability": "known",
+            "completeness": "final",
+            "provenance": "derived"
+          }
+        },
+        "reasoning_relation": "unknown",
+        "provider_counts": {
+          "anthropic_input_tokens": 0,
+          "anthropic_output_tokens": 0,
+          "anthropic_cache_read_input_tokens": 0,
+          "anthropic_cache_creation_input_tokens": 0
+        },
+        "issues": []
+      }
+    },
+    {
+      "id": "anthropic_missing_cache_read",
+      "evidence": "synthetic_contract",
+      "provider": "anthropic",
+      "provider_counts": {
+        "anthropic_input_tokens": 10,
+        "anthropic_output_tokens": 20,
+        "anthropic_cache_creation_input_tokens": 40
+      },
+      "partial": false,
+      "expected": {
+        "format_version": 1,
+        "normalizer_version": "1",
+        "provider": "anthropic",
+        "total_input": {
+          "value": null,
+          "availability": "absent",
+          "completeness": "final",
+          "provenance": "absent"
+        },
+        "input_uncached": {
+          "value": 10,
+          "availability": "known",
+          "completeness": "final",
+          "provenance": "provider"
+        },
+        "cache_read": {
+          "value": null,
+          "availability": "absent",
+          "completeness": "final",
+          "provenance": "absent"
+        },
+        "output_total": {
+          "value": 20,
+          "availability": "known",
+          "completeness": "final",
+          "provenance": "provider"
+        },
+        "reasoning": {
+          "value": null,
+          "availability": "absent",
+          "completeness": "final",
+          "provenance": "absent"
+        },
+        "cache_write": {
+          "ttl_5m": {
+            "value": 0,
+            "availability": "known",
+            "completeness": "final",
+            "provenance": "derived"
+          },
+          "ttl_1h": {
+            "value": 0,
+            "availability": "known",
+            "completeness": "final",
+            "provenance": "derived"
+          },
+          "ttl_unknown": {
+            "value": 40,
+            "availability": "known",
+            "completeness": "final",
+            "provenance": "derived"
+          }
+        },
+        "reasoning_relation": "unknown",
+        "provider_counts": {
+          "anthropic_input_tokens": 10,
+          "anthropic_output_tokens": 20,
+          "anthropic_cache_creation_input_tokens": 40
+        },
+        "issues": [
+          "cache_read_missing"
+        ]
+      }
+    },
+    {
+      "id": "anthropic_invalid_ttl_keeps_output",
+      "evidence": "synthetic_contract",
+      "provider": "anthropic",
+      "provider_counts": {
+        "anthropic_input_tokens": 10,
+        "anthropic_output_tokens": 20,
+        "anthropic_cache_read_input_tokens": 30,
+        "anthropic_cache_creation_input_tokens": 5,
+        "anthropic_cache_creation_5m_tokens": 8
+      },
+      "partial": false,
+      "expected": {
+        "format_version": 1,
+        "normalizer_version": "1",
+        "provider": "anthropic",
+        "total_input": {
+          "value": 45,
+          "availability": "known",
+          "completeness": "final",
+          "provenance": "derived"
+        },
+        "input_uncached": {
+          "value": 10,
+          "availability": "known",
+          "completeness": "final",
+          "provenance": "provider"
+        },
+        "cache_read": {
+          "value": 30,
+          "availability": "known",
+          "completeness": "final",
+          "provenance": "provider"
+        },
+        "output_total": {
+          "value": 20,
+          "availability": "known",
+          "completeness": "final",
+          "provenance": "provider"
+        },
+        "reasoning": {
+          "value": null,
+          "availability": "absent",
+          "completeness": "final",
+          "provenance": "absent"
+        },
+        "cache_write": {
+          "ttl_5m": {
+            "value": null,
+            "availability": "absent",
+            "completeness": "final",
+            "provenance": "absent"
+          },
+          "ttl_1h": {
+            "value": null,
+            "availability": "absent",
+            "completeness": "final",
+            "provenance": "absent"
+          },
+          "ttl_unknown": {
+            "value": null,
+            "availability": "absent",
+            "completeness": "final",
+            "provenance": "absent"
+          }
+        },
+        "reasoning_relation": "unknown",
+        "provider_counts": {
+          "anthropic_input_tokens": 10,
+          "anthropic_output_tokens": 20,
+          "anthropic_cache_read_input_tokens": 30,
+          "anthropic_cache_creation_input_tokens": 5,
+          "anthropic_cache_creation_5m_tokens": 8
+        },
+        "issues": [
+          "cache_write_breakdown_invalid"
+        ]
+      }
+    },
+    {
+      "id": "deepseek_hit_miss",
+      "evidence": "synthetic_contract",
+      "provider": "deepseek",
+      "provider_counts": {
+        "deepseek_prompt_tokens": 100,
+        "deepseek_completion_tokens": 20,
+        "deepseek_prompt_cache_hit_tokens": 70,
+        "deepseek_prompt_cache_miss_tokens": 30
+      },
+      "partial": false,
+      "expected": {
+        "format_version": 1,
+        "normalizer_version": "1",
+        "provider": "deepseek",
+        "total_input": {
+          "value": 100,
+          "availability": "known",
+          "completeness": "final",
+          "provenance": "provider"
+        },
+        "input_uncached": {
+          "value": 30,
+          "availability": "known",
+          "completeness": "final",
+          "provenance": "provider"
+        },
+        "cache_read": {
+          "value": 70,
+          "availability": "known",
+          "completeness": "final",
+          "provenance": "provider"
+        },
+        "output_total": {
+          "value": 20,
+          "availability": "known",
+          "completeness": "final",
+          "provenance": "provider"
+        },
+        "reasoning": {
+          "value": null,
+          "availability": "absent",
+          "completeness": "final",
+          "provenance": "absent"
+        },
+        "cache_write": {
+          "ttl_5m": {
+            "value": 0,
+            "availability": "known",
+            "completeness": "final",
+            "provenance": "derived"
+          },
+          "ttl_1h": {
+            "value": 0,
+            "availability": "known",
+            "completeness": "final",
+            "provenance": "derived"
+          },
+          "ttl_unknown": {
+            "value": 0,
+            "availability": "known",
+            "completeness": "final",
+            "provenance": "derived"
+          }
+        },
+        "reasoning_relation": "unknown",
+        "provider_counts": {
+          "deepseek_prompt_tokens": 100,
+          "deepseek_completion_tokens": 20,
+          "deepseek_prompt_cache_hit_tokens": 70,
+          "deepseek_prompt_cache_miss_tokens": 30
+        },
+        "issues": []
+      }
+    },
+    {
+      "id": "deepseek_contradictory_miss_keeps_output",
+      "evidence": "synthetic_contract",
+      "provider": "deepseek",
+      "provider_counts": {
+        "deepseek_prompt_tokens": 100,
+        "deepseek_completion_tokens": 20,
+        "deepseek_prompt_cache_hit_tokens": 70,
+        "deepseek_prompt_cache_miss_tokens": 40
+      },
+      "partial": false,
+      "expected": {
+        "format_version": 1,
+        "normalizer_version": "1",
+        "provider": "deepseek",
+        "total_input": {
+          "value": 100,
+          "availability": "known",
+          "completeness": "final",
+          "provenance": "provider"
+        },
+        "input_uncached": {
+          "value": null,
+          "availability": "absent",
+          "completeness": "final",
+          "provenance": "absent"
+        },
+        "cache_read": {
+          "value": 70,
+          "availability": "known",
+          "completeness": "final",
+          "provenance": "provider"
+        },
+        "output_total": {
+          "value": 20,
+          "availability": "known",
+          "completeness": "final",
+          "provenance": "provider"
+        },
+        "reasoning": {
+          "value": null,
+          "availability": "absent",
+          "completeness": "final",
+          "provenance": "absent"
+        },
+        "cache_write": {
+          "ttl_5m": {
+            "value": 0,
+            "availability": "known",
+            "completeness": "final",
+            "provenance": "derived"
+          },
+          "ttl_1h": {
+            "value": 0,
+            "availability": "known",
+            "completeness": "final",
+            "provenance": "derived"
+          },
+          "ttl_unknown": {
+            "value": 0,
+            "availability": "known",
+            "completeness": "final",
+            "provenance": "derived"
+          }
+        },
+        "reasoning_relation": "unknown",
+        "provider_counts": {
+          "deepseek_prompt_tokens": 100,
+          "deepseek_completion_tokens": 20,
+          "deepseek_prompt_cache_hit_tokens": 70,
+          "deepseek_prompt_cache_miss_tokens": 40
+        },
+        "issues": [
+          "input_breakdown_mismatch"
+        ]
+      }
+    },
+    {
+      "id": "gemini_thoughts_relation_unproven",
+      "evidence": "synthetic_contract",
+      "provider": "gemini",
+      "provider_counts": {
+        "gemini_prompt_token_count": 100,
+        "gemini_cached_content_token_count": 20,
+        "gemini_candidates_token_count": 30,
+        "gemini_thoughts_token_count": 40,
+        "gemini_total_token_count": 170
+      },
+      "partial": false,
+      "expected": {
+        "format_version": 1,
+        "normalizer_version": "1",
+        "provider": "gemini",
+        "total_input": {
+          "value": 100,
+          "availability": "known",
+          "completeness": "final",
+          "provenance": "provider"
+        },
+        "input_uncached": {
+          "value": 80,
+          "availability": "known",
+          "completeness": "final",
+          "provenance": "derived"
+        },
+        "cache_read": {
+          "value": 20,
+          "availability": "known",
+          "completeness": "final",
+          "provenance": "provider"
+        },
+        "output_total": {
+          "value": 30,
+          "availability": "known",
+          "completeness": "final",
+          "provenance": "provider"
+        },
+        "reasoning": {
+          "value": 40,
+          "availability": "known",
+          "completeness": "final",
+          "provenance": "provider"
+        },
+        "cache_write": {
+          "ttl_5m": {
+            "value": 0,
+            "availability": "known",
+            "completeness": "final",
+            "provenance": "derived"
+          },
+          "ttl_1h": {
+            "value": 0,
+            "availability": "known",
+            "completeness": "final",
+            "provenance": "derived"
+          },
+          "ttl_unknown": {
+            "value": 0,
+            "availability": "known",
+            "completeness": "final",
+            "provenance": "derived"
+          }
+        },
+        "reasoning_relation": "unknown",
+        "provider_counts": {
+          "gemini_prompt_token_count": 100,
+          "gemini_cached_content_token_count": 20,
+          "gemini_candidates_token_count": 30,
+          "gemini_thoughts_token_count": 40,
+          "gemini_total_token_count": 170
+        },
+        "issues": [
+          "reasoning_relation_unknown"
+        ]
+      }
+    },
+    {
+      "id": "gemini_cache_and_thoughts_absent",
+      "evidence": "synthetic_contract",
+      "provider": "gemini",
+      "provider_counts": {
+        "gemini_prompt_token_count": 100,
+        "gemini_candidates_token_count": 30
+      },
+      "partial": false,
+      "expected": {
+        "format_version": 1,
+        "normalizer_version": "1",
+        "provider": "gemini",
+        "total_input": {
+          "value": 100,
+          "availability": "known",
+          "completeness": "final",
+          "provenance": "provider"
+        },
+        "input_uncached": {
+          "value": null,
+          "availability": "absent",
+          "completeness": "final",
+          "provenance": "absent"
+        },
+        "cache_read": {
+          "value": null,
+          "availability": "absent",
+          "completeness": "final",
+          "provenance": "absent"
+        },
+        "output_total": {
+          "value": 30,
+          "availability": "known",
+          "completeness": "final",
+          "provenance": "provider"
+        },
+        "reasoning": {
+          "value": null,
+          "availability": "absent",
+          "completeness": "final",
+          "provenance": "absent"
+        },
+        "cache_write": {
+          "ttl_5m": {
+            "value": 0,
+            "availability": "known",
+            "completeness": "final",
+            "provenance": "derived"
+          },
+          "ttl_1h": {
+            "value": 0,
+            "availability": "known",
+            "completeness": "final",
+            "provenance": "derived"
+          },
+          "ttl_unknown": {
+            "value": 0,
+            "availability": "known",
+            "completeness": "final",
+            "provenance": "derived"
+          }
+        },
+        "reasoning_relation": "unknown",
+        "provider_counts": {
+          "gemini_prompt_token_count": 100,
+          "gemini_candidates_token_count": 30
+        },
+        "issues": [
+          "cache_read_missing"
+        ]
+      }
+    },
+    {
+      "id": "unknown_semantics_no_invention",
+      "evidence": "synthetic_contract",
+      "provider": "unknown",
+      "provider_counts": {},
+      "partial": false,
+      "expected": {
+        "format_version": 1,
+        "normalizer_version": "1",
+        "provider": "unknown",
+        "total_input": {
+          "value": null,
+          "availability": "absent",
+          "completeness": "final",
+          "provenance": "absent"
+        },
+        "input_uncached": {
+          "value": null,
+          "availability": "absent",
+          "completeness": "final",
+          "provenance": "absent"
+        },
+        "cache_read": {
+          "value": null,
+          "availability": "absent",
+          "completeness": "final",
+          "provenance": "absent"
+        },
+        "output_total": {
+          "value": null,
+          "availability": "absent",
+          "completeness": "final",
+          "provenance": "absent"
+        },
+        "reasoning": {
+          "value": null,
+          "availability": "absent",
+          "completeness": "final",
+          "provenance": "absent"
+        },
+        "cache_write": {
+          "ttl_5m": {
+            "value": null,
+            "availability": "absent",
+            "completeness": "final",
+            "provenance": "absent"
+          },
+          "ttl_1h": {
+            "value": null,
+            "availability": "absent",
+            "completeness": "final",
+            "provenance": "absent"
+          },
+          "ttl_unknown": {
+            "value": null,
+            "availability": "absent",
+            "completeness": "final",
+            "provenance": "absent"
+          }
+        },
+        "reasoning_relation": "unknown",
+        "provider_counts": {},
+        "issues": [
+          "provider_semantics_unknown",
+          "usage_missing",
+          "input_missing",
+          "output_missing"
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,146 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://motai.local/contracts/v1/common.schema.json",
+  "definitions": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+    },
+    "uuid": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "decimal": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80,
+      "pattern": "^(0|[1-9][0-9]*)$"
+    },
+    "safe_uint": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "nullable_uint": {
+      "type": ["integer", "null"],
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "utc": {
+      "type": "string",
+      "format": "motai-utc",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?Z$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "model_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "pattern": "^[^\\s\\x00-\\x1f\\x7f]+$"
+    },
+    "protocol": {
+      "enum": [
+        "responses",
+        "chat_completions",
+        "messages",
+        "gemini_generate_content",
+        "count_tokens"
+      ]
+    },
+    "vendor": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80,
+      "pattern": "^[a-z][a-z0-9_]*$"
+    },
+    "kind": {
+      "enum": [
+        "model",
+        "probe"
+      ]
+    },
+    "request_outcome": {
+      "enum": [
+        "succeeded",
+        "failed",
+        "cancelled",
+        "interrupted"
+      ]
+    },
+    "attempt_outcome": {
+      "enum": [
+        "succeeded",
+        "not_sent",
+        "uncertain",
+        "upstream_rejected",
+        "rate_limited",
+        "funds_exhausted",
+        "auth_invalid",
+        "invalid_request",
+        "invalid_response",
+        "upstream_failed",
+        "incomplete",
+        "stream_broken",
+        "client_gone",
+        "deadline_exceeded",
+        "interrupted"
+      ]
+    },
+    "error_class": {
+      "enum": [
+        null,
+        "connect_failed",
+        "upstream_timeout",
+        "upstream_5xx",
+        "rate_limited",
+        "funds_exhausted",
+        "auth_invalid",
+        "invalid_request",
+        "unsupported_model",
+        "unsupported_effort",
+        "context_limit",
+        "permission_denied",
+        "invalid_response",
+        "stream_incomplete",
+        "stream_broken",
+        "client_cancelled",
+        "request_deadline",
+        "process_interrupted",
+        "gateway_log_unavailable",
+        "unknown_upstream"
+      ]
+    },
+    "channel_effect": {
+      "enum": [
+        "none",
+        "failure_counted",
+        "cooldown",
+        "exhausted",
+        "auth_invalid",
+        "success_reset"
+      ]
+    },
+    "effort": {
+      "type": ["string", "null"],
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+    },
+    "cursor": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2048
+    },
+    "http_url": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2048,
+      "format": "motai-http-url"
+    }
+  }
+}

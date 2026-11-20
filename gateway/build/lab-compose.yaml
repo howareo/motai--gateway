@@ -1,0 +1,69 @@
+name: motai-candidate-s2
+
+services:
+  core:
+    image: local/new-api-ops:rc25-cooldown-20261025
+    pull_policy: never
+    entrypoint: ["/candidate/motai-gateway"]
+    command: []
+    mem_limit: 512m
+    stop_grace_period: 16m
+    environment:
+      PORT: "3001"
+      MOTAI_RUNTIME_DSN: postgres://motai_runtime:synthetic-runtime-password@postgres:5432/motai_gateway?sslmode=disable
+      MOTAI_ACTIVATOR_DSN: postgres://motai_activator:synthetic-activator-password@postgres:5432/motai_gateway?sslmode=disable
+      MOTAI_CONFIG_DIR: /config
+      MOTAI_CONTRACTS_DIR: /contracts
+      MOTAI_HMAC_KEY_FILE: /config/hmac.key
+      MOTAI_MANAGEMENT_KEY_FILE: /config/management.key
+      MOTAI_INTERNAL_ADDR: 0.0.0.0:3002
+      SESSION_SECRET: synthetic-motai-candidate-session-secret
+      TZ: Asia/Shanghai
+      SQL_MAX_OPEN_CONNS: "8"
+      SQL_MAX_IDLE_CONNS: "2"
+    volumes:
+      - ${MOTAI_CANDIDATE_BINARY:?candidate binary required}:/candidate/motai-gateway:ro
+      - ${MOTAI_CANDIDATE_CONFIG:?candidate config directory required}:/config:ro
+      - ../../contracts:/contracts:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      fixture:
+        condition: service_started
+    networks: [candidate]
+  postgres:
+    image: postgres:16
+    pull_policy: never
+    mem_limit: 256m
+    environment:
+      POSTGRES_USER: motai_candidate
+      POSTGRES_PASSWORD: synthetic-lab-db-password
+      POSTGRES_DB: motai_candidate_lab
+    volumes:
+      - candidate-postgres:/var/lib/postgresql/data
+      - ./lab-init.sql:/docker-entrypoint-initdb.d/001-roles.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U motai_candidate -d motai_candidate_lab"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+    networks: [candidate]
+  fixture:
+    image: node:22-alpine
+    pull_policy: never
+    user: "10001:10001"
+    mem_limit: 128m
+    working_dir: /app
+    command: ["node", "gateway/lab/fixture.mjs"]
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    volumes:
+      - ..:/app/gateway:ro
+      - ${MOTAI_CANDIDATE_CONFIG:?candidate config directory required}:/config
+    networks: [candidate]
+networks:
+  candidate:
+    internal: true
+volumes:
+  candidate-postgres:

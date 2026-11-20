@@ -1,0 +1,283 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://motai.local/contracts/v1/records.schema.json",
+  "definitions": {
+    "intent": {
+      "type": "object",
+      "properties": {
+        "format_version": {
+          "const": 1
+        },
+        "source": {
+          "const": "motai"
+        },
+        "request_id": {
+          "$ref": "common.schema.json#/definitions/uuid"
+        },
+        "attempt_id": {
+          "$ref": "common.schema.json#/definitions/uuid"
+        },
+        "kind": {
+          "$ref": "common.schema.json#/definitions/kind"
+        },
+        "gen": {
+          "$ref": "common.schema.json#/definitions/decimal"
+        },
+        "pool_epoch": {
+          "$ref": "common.schema.json#/definitions/decimal"
+        },
+        "caller_id": {
+          "$ref": "common.schema.json#/definitions/id"
+        },
+        "channel_id": {
+          "$ref": "common.schema.json#/definitions/id"
+        },
+        "channel_name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "pool_id": {
+          "$ref": "common.schema.json#/definitions/id"
+        },
+        "model_requested": {
+          "$ref": "common.schema.json#/definitions/model_id"
+        },
+        "model_canonical": {
+          "$ref": "common.schema.json#/definitions/model_id"
+        },
+        "model_upstream": {
+          "$ref": "common.schema.json#/definitions/model_id"
+        },
+        "vendor": {
+          "$ref": "common.schema.json#/definitions/vendor"
+        },
+        "protocol": {
+          "$ref": "common.schema.json#/definitions/protocol"
+        },
+        "stream": {
+          "type": "boolean"
+        },
+        "effort": {
+          "type": "object",
+          "properties": {
+            "value": {
+              "$ref": "common.schema.json#/definitions/effort"
+            },
+            "source": {
+              "enum": [
+                null,
+                "request",
+                "adapter"
+              ]
+            }
+          },
+          "required": [
+            "value",
+            "source"
+          ],
+          "additionalProperties": false
+        },
+        "thinking_budget": {
+          "anyOf": [
+            { "$ref": "common.schema.json#/definitions/nullable_uint" },
+            { "const": -1 }
+          ]
+        },
+        "started_at": {
+          "$ref": "common.schema.json#/definitions/utc"
+        },
+        "route_reason": {
+          "enum": [
+            "priority_weight",
+            "affinity_session",
+            "affinity_caller",
+            "explicit_channel",
+            "probe_explicit"
+          ]
+        },
+        "credential_ref": {
+          "$ref": "common.schema.json#/definitions/id"
+        },
+        "credential_version": {
+          "$ref": "common.schema.json#/definitions/decimal"
+        },
+        "affinity": {
+          "type": "object",
+          "properties": {
+            "scope": {
+              "enum": [
+                "session",
+                "caller"
+              ]
+            },
+            "digest": {
+              "$ref": "common.schema.json#/definitions/sha256"
+            }
+          },
+          "required": [
+            "scope",
+            "digest"
+          ],
+          "additionalProperties": false
+        },
+        "attempt_no": {
+          "const": 1
+        }
+      },
+      "required": [
+        "format_version",
+        "source",
+        "request_id",
+        "attempt_id",
+        "kind",
+        "gen",
+        "pool_epoch",
+        "caller_id",
+        "channel_id",
+        "channel_name",
+        "pool_id",
+        "model_requested",
+        "model_canonical",
+        "model_upstream",
+        "vendor",
+        "protocol",
+        "stream",
+        "effort",
+        "thinking_budget",
+        "started_at",
+        "route_reason",
+        "credential_ref",
+        "credential_version",
+        "affinity",
+        "attempt_no"
+      ],
+      "additionalProperties": false
+    },
+    "terminal": {
+      "type": "object",
+      "properties": {
+        "format_version": {
+          "const": 1
+        },
+        "attempt_id": {
+          "$ref": "common.schema.json#/definitions/uuid"
+        },
+        "ended_at": {
+          "$ref": "common.schema.json#/definitions/utc"
+        },
+        "duration_ms": {
+          "$ref": "common.schema.json#/definitions/safe_uint"
+        },
+        "ttft_ms": {
+          "$ref": "common.schema.json#/definitions/nullable_uint"
+        },
+        "request_outcome": {
+          "$ref": "common.schema.json#/definitions/request_outcome"
+        },
+        "attempt_outcome": {
+          "$ref": "common.schema.json#/definitions/attempt_outcome"
+        },
+        "send_certainty": {
+          "enum": [
+            "none",
+            "partial",
+            "full",
+            "unknown"
+          ]
+        },
+        "upstream_status": {
+          "type": ["integer", "null"],
+          "minimum": 100,
+          "maximum": 599
+        },
+        "protocol_terminal": {
+          "enum": [
+            "completed",
+            "failed",
+            "incomplete",
+            "missing",
+            "not_applicable"
+          ]
+        },
+        "client_bytes": {
+          "$ref": "common.schema.json#/definitions/safe_uint"
+        },
+        "error_class": {
+          "$ref": "common.schema.json#/definitions/error_class"
+        },
+        "channel_effect": {
+          "$ref": "common.schema.json#/definitions/channel_effect"
+        },
+        "usage": {
+          "$ref": "usage.schema.json#/definitions/usage"
+        },
+        "error_detail": {
+          "type": ["string", "null"],
+          "maxLength": 512
+        }
+      },
+      "required": [
+        "format_version",
+        "attempt_id",
+        "ended_at",
+        "duration_ms",
+        "ttft_ms",
+        "request_outcome",
+        "attempt_outcome",
+        "send_certainty",
+        "upstream_status",
+        "protocol_terminal",
+        "client_bytes",
+        "error_class",
+        "channel_effect",
+        "usage"
+      ],
+      "additionalProperties": false
+    },
+    "attempt": {
+      "type": "object",
+      "properties": {
+        "format_version": {
+          "const": 1
+        },
+        "intent": {
+          "$ref": "records.schema.json#/definitions/intent"
+        },
+        "terminal": {
+          "$ref": "records.schema.json#/definitions/terminal"
+        }
+      },
+      "required": [
+        "format_version",
+        "intent",
+        "terminal"
+      ],
+      "additionalProperties": false
+    },
+    "event": {
+      "type": "object",
+      "properties": {
+        "format_version": {
+          "const": 1
+        },
+        "seq": {
+          "$ref": "common.schema.json#/definitions/decimal"
+        },
+        "event_type": {
+          "const": "attempt_terminal"
+        },
+        "attempt": {
+          "$ref": "records.schema.json#/definitions/attempt"
+        }
+      },
+      "required": [
+        "format_version",
+        "seq",
+        "event_type",
+        "attempt"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

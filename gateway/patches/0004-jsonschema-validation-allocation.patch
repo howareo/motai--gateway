@@ -1,0 +1,228 @@
+diff --git a/schema.go b/schema.go
+index 688f0a6..63388f7 100644
+--- a/schema.go
++++ b/schema.go
+@@ -1,3 +1,4 @@
++// Modified by Motai: reuse validation scopes, exact numeric parsing, and property name paths; allocate unevaluated property maps and extension closures only when needed.
+ package jsonschema
+ 
+ import (
+@@ -49,6 +50,7 @@ type Schema struct {
+ 	MinProperties         int      // -1 if not specified.
+ 	MaxProperties         int      // -1 if not specified.
+ 	Required              []string // list of required properties.
++	propertyPaths         map[string]struct{ token, keyword string }
+ 	Properties            map[string]*Schema
+ 	PropertyNames         *Schema
+ 	RegexProperties       bool // property names must be valid regex. used only in draft4 as workaround in metaschema.
+@@ -124,6 +126,14 @@ func newSchema(url, floc string, draft *Draft, doc interface{}) *Schema {
+ 	}
+ 
+ 	if doc, ok := doc.(map[string]interface{}); ok {
++		// Only names are cached; validation still reads the current Properties map.
++		if properties, ok := doc["properties"].(map[string]interface{}); ok && len(properties) > 0 {
++			s.propertyPaths = make(map[string]struct{ token, keyword string }, len(properties))
++			for name := range properties {
++				token := escape(name)
++				s.propertyPaths[name] = struct{ token, keyword string }{token, "properties/" + token}
++			}
++		}
+ 		if ra, ok := doc["$recursiveAnchor"]; ok {
+ 			if ra, ok := ra.(bool); ok {
+ 				s.RecursiveAnchor = ra
+@@ -179,7 +189,7 @@ func (s *Schema) validateValue(v interface{}, vloc string) (err error) {
+ 			}
+ 		}
+ 	}()
+-	if _, err := s.validate(nil, 0, "", v, vloc); err != nil {
++	if _, err := s.validate(make([]schemaRef, 0, 32), 0, "", v, vloc); err != nil {
+ 		ve := ValidationError{
+ 			KeywordLocation:         "",
+ 			AbsoluteKeywordLocation: s.Location,
+@@ -212,14 +222,24 @@ func (s *Schema) validate(scope []schemaRef, vscope int, spath string, v interfa
+ 	// populate result
+ 	switch v := v.(type) {
+ 	case map[string]interface{}:
+-		result.unevalProps = make(map[string]struct{})
+ 		for pname := range v {
+-			result.unevalProps[pname] = struct{}{}
++			if _, declared := s.Properties[pname]; !declared {
++				if result.unevalProps == nil {
++					result.unevalProps = make(map[string]struct{})
++				}
++				result.unevalProps[pname] = struct{}{}
++			}
+ 		}
+ 	case []interface{}:
+-		result.unevalItems = make(map[int]struct{})
+-		for i := range v {
+-			result.unevalItems[i] = struct{}{}
++		if s.UnevaluatedItems != nil || s.ContainsEval || len(s.PrefixItems) > 0 || s.Items2020 != nil {
++			result.unevalItems = make(map[int]struct{}, len(v))
++		} else if items, ok := s.Items.([]*Schema); ok && (len(items) > 0 || s.AdditionalItems != nil) {
++			result.unevalItems = make(map[int]struct{}, len(v))
++		}
++		if result.unevalItems != nil {
++			for i := range v {
++				result.unevalItems[i] = struct{}{}
++			}
+ 		}
+ 	}
+ 
+@@ -257,6 +277,43 @@ func (s *Schema) validate(scope []schemaRef, vscope int, spath string, v interfa
+ 		return result, nil
+ 	}
+ 
++	// Integer JSON numbers need no rational allocation for integer type or int64 bounds.
++	var integer int64
++	var integerOK bool
++	if value, ok := v.(json.Number); ok {
++		var err error
++		integer, err = strconv.ParseInt(string(value), 10, 64)
++		integerOK = err == nil
++	}
++	var numVal *big.Rat
++	num := func() *big.Rat {
++		if numVal == nil {
++			if value, ok := v.(json.Number); ok {
++				if integerOK {
++					numVal = new(big.Rat).SetInt64(integer)
++				} else {
++					numVal, _ = new(big.Rat).SetString(string(value))
++				}
++			} else {
++				numVal, _ = new(big.Rat).SetString(fmt.Sprint(v))
++			}
++		}
++		return numVal
++	}
++	compare := func(bound *big.Rat) int {
++		if integerOK && bound.IsInt() && bound.Num().IsInt64() {
++			limit := bound.Num().Int64()
++			if integer < limit {
++				return -1
++			}
++			if integer > limit {
++				return 1
++			}
++			return 0
++		}
++		return num().Cmp(bound)
++	}
++
+ 	if len(s.Types) > 0 {
+ 		vType := jsonType(v)
+ 		matched := false
+@@ -265,8 +322,7 @@ func (s *Schema) validate(scope []schemaRef, vscope int, spath string, v interfa
+ 				matched = true
+ 				break
+ 			} else if t == "integer" && vType == "number" {
+-				num, _ := new(big.Rat).SetString(fmt.Sprint(v))
+-				if num.IsInt() {
++				if integerOK || num().IsInt() {
+ 					matched = true
+ 					break
+ 				}
+@@ -334,7 +390,12 @@ func (s *Schema) validate(scope []schemaRef, vscope int, spath string, v interfa
+ 		for pname, sch := range s.Properties {
+ 			if pvalue, ok := v[pname]; ok {
+ 				delete(result.unevalProps, pname)
+-				if err := validate(sch, "properties/"+escape(pname), pvalue, escape(pname)); err != nil {
++				path, cached := s.propertyPaths[pname]
++				if !cached {
++					path.token = escape(pname)
++					path.keyword = "properties/" + path.token
++				}
++				if err := validate(sch, path.keyword, pvalue, path.token); err != nil {
+ 					errors = append(errors, err)
+ 				}
+ 			}
+@@ -582,28 +643,20 @@ func (s *Schema) validate(scope []schemaRef, vscope int, spath string, v interfa
+ 		}
+ 
+ 	case json.Number, float32, float64, int, int8, int32, int64, uint, uint8, uint32, uint64:
+-		// lazy convert to *big.Rat to avoid allocation
+-		var numVal *big.Rat
+-		num := func() *big.Rat {
+-			if numVal == nil {
+-				numVal, _ = new(big.Rat).SetString(fmt.Sprint(v))
+-			}
+-			return numVal
+-		}
+ 		f64 := func(r *big.Rat) float64 {
+ 			f, _ := r.Float64()
+ 			return f
+ 		}
+-		if s.Minimum != nil && num().Cmp(s.Minimum) < 0 {
++		if s.Minimum != nil && compare(s.Minimum) < 0 {
+ 			errors = append(errors, validationError("minimum", "must be >= %v but found %v", f64(s.Minimum), v))
+ 		}
+-		if s.ExclusiveMinimum != nil && num().Cmp(s.ExclusiveMinimum) <= 0 {
++		if s.ExclusiveMinimum != nil && compare(s.ExclusiveMinimum) <= 0 {
+ 			errors = append(errors, validationError("exclusiveMinimum", "must be > %v but found %v", f64(s.ExclusiveMinimum), v))
+ 		}
+-		if s.Maximum != nil && num().Cmp(s.Maximum) > 0 {
++		if s.Maximum != nil && compare(s.Maximum) > 0 {
+ 			errors = append(errors, validationError("maximum", "must be <= %v but found %v", f64(s.Maximum), v))
+ 		}
+-		if s.ExclusiveMaximum != nil && num().Cmp(s.ExclusiveMaximum) >= 0 {
++		if s.ExclusiveMaximum != nil && compare(s.ExclusiveMaximum) >= 0 {
+ 			errors = append(errors, validationError("exclusiveMaximum", "must be < %v but found %v", f64(s.ExclusiveMaximum), v))
+ 		}
+ 		if s.MultipleOf != nil {
+@@ -735,7 +788,7 @@ func (s *Schema) validate(scope []schemaRef, vscope int, spath string, v interfa
+ 	}
+ 
+ 	for _, ext := range s.Extensions {
+-		if err := ext.Validate(ValidationContext{result, validate, validateInplace, validationError}, v); err != nil {
++		if err := ext.Validate(s.extensionContext(scope, vscope, v, vloc, result), v); err != nil {
+ 			errors = append(errors, err)
+ 		}
+ 	}
+@@ -774,6 +827,46 @@ func (s *Schema) validate(scope []schemaRef, vscope int, spath string, v interfa
+ 	}
+ }
+ 
++func (s *Schema) extensionContext(scope []schemaRef, vscope int, v interface{}, vloc string, result validationResult) ValidationContext {
++	validationError := func(keywordPath string, format string, a ...interface{}) *ValidationError {
++		return &ValidationError{
++			KeywordLocation:         keywordLocation(scope, keywordPath),
++			AbsoluteKeywordLocation: joinPtr(s.Location, keywordPath),
++			InstanceLocation:        vloc,
++			Message:                 fmt.Sprintf(format, a...),
++		}
++	}
++
++	validate := func(sch *Schema, schPath string, v interface{}, vpath string) error {
++		vloc := vloc
++		if vpath != "" {
++			vloc += "/" + vpath
++		}
++		_, err := sch.validate(scope, 0, schPath, v, vloc)
++		return err
++	}
++
++	validateInplace := func(sch *Schema, schPath string) error {
++		vr, err := sch.validate(scope, vscope, schPath, v, vloc)
++		if err == nil {
++			// update result
++			for pname := range result.unevalProps {
++				if _, ok := vr.unevalProps[pname]; !ok {
++					delete(result.unevalProps, pname)
++				}
++			}
++			for i := range result.unevalItems {
++				if _, ok := vr.unevalItems[i]; !ok {
++					delete(result.unevalItems, i)
++				}
++			}
++		}
++		return err
++	}
++
++	return ValidationContext{result, validate, validateInplace, validationError}
++}
++
+ type validationResult struct {
+ 	unevalProps map[string]struct{}
+ 	unevalItems map[int]struct{}

@@ -1,0 +1,36 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { runInNewContext } from 'node:vm';
+import { editorDOM } from './helpers/editor-dom.js';
+
+test('settings categories switch by click and keyboard without resetting form values', async () => {
+  const html = readFileSync(new URL('../public/index.html', import.meta.url), 'utf8');
+  const markup = html.slice(html.indexOf('<section id="settings"'), html.indexOf('<section id="model-prices"'));
+  const { document, template } = editorDOM(`<template id="gateway-channel-template">${markup}</template>`);
+  const root = template.content;
+  document.querySelectorAll = (selector) => root.querySelectorAll(selector);
+  document.getElementById = (id) => root.querySelector(`#${id}`);
+  const source = readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
+  const start = source.indexOf('const settingsPageTabs = ');
+  const end = source.indexOf('elements.settingsWalletRefresh.addEventListener', start);
+  assert.ok(start >= 0 && end > start);
+  runInNewContext(source.slice(start, end), { document });
+  const keys = document.getElementById('settings-keys-tab');
+  const runtime = document.getElementById('settings-runtime-tab');
+  const interval = document.getElementById('channel-health-interval');
+  interval.value = '17';
+  assert.equal(document.getElementById('settings-runtime').hidden, true);
+  await runtime.dispatch('click');
+  assert.equal(runtime.getAttribute('aria-selected'), 'true');
+  assert.equal(document.getElementById('settings-api-keys').hidden, true);
+  assert.equal(document.getElementById('settings-runtime').hidden, false);
+  await runtime.dispatch('keydown', { key: 'ArrowRight' });
+  assert.equal(document.activeElement, keys);
+  assert.equal(keys.tabIndex, 0); assert.equal(runtime.tabIndex, -1);
+  await keys.dispatch('keydown', { key: 'End' });
+  assert.equal(document.activeElement, runtime);
+  await runtime.dispatch('keydown', { key: 'Home' });
+  assert.equal(document.activeElement, keys);
+  assert.equal(interval.value, '17');
+});

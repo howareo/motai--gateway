@@ -1,0 +1,11 @@
+{
+  "module": "github.com/santhosh-tekuri/jsonschema/v5",
+  "version": "v5.3.1",
+  "sum": "h1:lZUw3E0/J3roVtGQ+SCrUrg3ON6NgVqpn3+iol9aGu4=",
+  "license": "Apache-2.0",
+  "license_sha256": "c8858a5a76440bbca484e134cf7df46385d090dd18b2c58e650f939258802e5b",
+  "schema_go_sha256": "b117adb862bf39b9230a9cd177798a526464e4f7222e9d67a183496c74445ac3",
+  "patched_schema_go_sha256": "30c27a4a1950bbc9f50beda629aab13f2f8288fd8091030d9ba8e8e9b7048691",
+  "patch": "gateway/patches/0004-jsonschema-validation-allocation.patch",
+  "patch_sha256": "608c9b2e7bc8f258157393082c439310446592e1ca24abff87025cac2f6009e9"
+}

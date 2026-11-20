@@ -1,0 +1,74 @@
+name: motai-gateway-lab
+
+services:
+  core:
+    # Locked running image, not the differently hashed host-side binary.
+    image: sha256:d1f5375c018e0f105ec856459102bdccc38752726a9025c26a73601f602d28e9
+    pull_policy: never
+    mem_limit: 512m
+    environment:
+      PORT: "3001"
+      SQL_DSN: postgres://motai_lab:synthetic-lab-db-password@postgres:5432/motai_lab?sslmode=disable
+      LOG_SQL_DSN: postgres://motai_lab:synthetic-lab-db-password@postgres:5432/motai_lab?sslmode=disable
+      REDIS_CONN_STRING: redis://redis:6379/0
+      SESSION_SECRET: motai-lab-synthetic-session-secret-20261025
+      TZ: Asia/Shanghai
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      fixture:
+        condition: service_started
+    networks: [lab]
+
+  postgres:
+    image: postgres:16
+    pull_policy: never
+    mem_limit: 256m
+    environment:
+      POSTGRES_USER: motai_lab
+      POSTGRES_PASSWORD: synthetic-lab-db-password
+      POSTGRES_DB: motai_lab
+    volumes:
+      - lab-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U motai_lab -d motai_lab"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+    networks: [lab]
+
+  redis:
+    image: redis:7
+    pull_policy: never
+    mem_limit: 96m
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+    networks: [lab]
+
+  fixture:
+    image: node:22-alpine
+    pull_policy: never
+    mem_limit: 128m
+    working_dir: /app/gateway/lab
+    command: ["node", "fixture.mjs"]
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    volumes:
+      - .:/app/gateway/lab:ro
+      - ../../src/new-api-client.js:/app/src/new-api-client.js:ro
+      - ../../package.json:/app/package.json:ro
+    networks: [lab]
+
+networks:
+  lab:
+    internal: true
+
+volumes:
+  lab-postgres:

@@ -1,0 +1,89 @@
+{
+  "format_version": 1,
+  "gen": "9007199254740993",
+  "pools": [
+    {
+      "id": "pool-main",
+      "name": "Main"
+    }
+  ],
+  "models": [
+    {
+      "id": "Model/Case-Sensitive",
+      "vendor": "openai"
+    }
+  ],
+  "channels": [
+    {
+      "id": "1022",
+      "name": "Synthetic upstream",
+      "pool_id": "pool-main",
+      "enabled": true,
+      "priority": 27,
+      "weight": 0,
+      "base_url": "https://upstream.invalid/v1",
+      "credential_ref": "upstream-main",
+      "credential_version": "2",
+      "account_ref": null,
+      "models": [
+        {
+          "model_id": "Model/Case-Sensitive",
+          "upstream_model": "Provider/Model",
+          "capabilities": [
+            "responses",
+            "chat_completions"
+          ]
+        }
+      ]
+    }
+  ],
+  "aliases": [
+    {
+      "alias": "friendly-alias",
+      "model_id": "Model/Case-Sensitive",
+      "pool_id": "pool-main"
+    }
+  ],
+  "callers": [
+    {
+      "id": "caller-codex",
+      "name": "Codex",
+      "enabled": true,
+      "subject_enabled": true,
+      "token_hmac": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "expires_at": null,
+      "allowed_ips": [
+        "127.0.0.1",
+        "10.10.0.0/16",
+        "::1/128"
+      ],
+      "permissions": [
+        {
+          "pool_id": "pool-main",
+          "model_ids": [
+            "Model/Case-Sensitive"
+          ],
+          "channel_ids": [
+            "1022"
+          ],
+          "protocols": [
+            "responses"
+          ],
+          "groups": []
+        }
+      ]
+    }
+  ],
+  "affinity": {
+    "enabled": true,
+    "ttl_seconds": 3600,
+    "scope_version": 1
+  },
+  "failure_policy": {
+    "max_attempts": 1,
+    "ordinary_failure_threshold": 3,
+    "ordinary_failure_window_seconds": 300,
+    "cooldown_seconds": 60,
+    "retry_after_max_seconds": 3600
+  }
+}

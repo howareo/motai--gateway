@@ -1,0 +1,567 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://motai.local/contracts/v1/config.schema.json",
+  "definitions": {
+    "pool": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "common.schema.json#/definitions/id"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        }
+      },
+      "required": [
+        "id",
+        "name"
+      ],
+      "additionalProperties": false
+    },
+    "model": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "common.schema.json#/definitions/model_id"
+        },
+        "vendor": {
+          "$ref": "common.schema.json#/definitions/vendor"
+        }
+      },
+      "required": [
+        "id",
+        "vendor"
+      ],
+      "additionalProperties": false
+    },
+    "channel_model": {
+      "type": "object",
+      "properties": {
+        "model_id": {
+          "$ref": "common.schema.json#/definitions/model_id"
+        },
+        "upstream_model": {
+          "$ref": "common.schema.json#/definitions/model_id"
+        },
+        "capabilities": {
+          "type": "array",
+          "items": {
+            "$ref": "common.schema.json#/definitions/protocol"
+          },
+          "minItems": 1,
+          "maxItems": 5,
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "model_id",
+        "upstream_model",
+        "capabilities"
+      ],
+      "additionalProperties": false
+    },
+    "channel": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "common.schema.json#/definitions/id"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "pool_id": {
+          "$ref": "common.schema.json#/definitions/id"
+        },
+        "pool_ids": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1000,
+          "uniqueItems": true,
+          "items": { "$ref": "common.schema.json#/definitions/id" }
+        },
+        "pool_priorities": {
+          "type": "object",
+          "maxProperties": 1000,
+          "propertyNames": { "$ref": "common.schema.json#/definitions/id" },
+          "additionalProperties": { "type": "integer", "minimum": 0, "maximum": 2147483647 }
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "priority": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2147483647
+        },
+        "weight": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000
+        },
+        "base_url": {
+          "$ref": "common.schema.json#/definitions/http_url"
+        },
+        "adapter": {
+          "enum": ["openai", "anthropic", "deepseek", "xai", "gemini", "moonshot"]
+        },
+        "credential_ref": {
+          "anyOf": [
+            {
+              "$ref": "common.schema.json#/definitions/id"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "credential_version": {
+          "anyOf": [
+            {
+              "$ref": "common.schema.json#/definitions/decimal"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "account_ref": {
+          "anyOf": [
+            {
+              "$ref": "common.schema.json#/definitions/id"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "models": {
+          "type": "array",
+          "items": {
+            "$ref": "config.schema.json#/definitions/channel_model"
+          },
+          "minItems": 1,
+          "maxItems": 10000
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "pool_id",
+        "enabled",
+        "priority",
+        "weight",
+        "base_url",
+        "credential_ref",
+        "credential_version",
+        "account_ref",
+        "models"
+      ],
+      "additionalProperties": false
+    },
+    "alias": {
+      "type": "object",
+      "properties": {
+        "alias": {
+          "$ref": "common.schema.json#/definitions/model_id"
+        },
+        "model_id": {
+          "$ref": "common.schema.json#/definitions/model_id"
+        },
+        "pool_id": {
+          "$ref": "common.schema.json#/definitions/id"
+        }
+      },
+      "required": [
+        "alias",
+        "model_id",
+        "pool_id"
+      ],
+      "additionalProperties": false
+    },
+    "permission": {
+      "type": "object",
+      "properties": {
+        "pool_id": {
+          "$ref": "common.schema.json#/definitions/id"
+        },
+        "model_ids": {
+          "description": "Model ids this permission names. Exactly [\"*\"] means every model the listed channels currently offer for the listed protocols; \"*\" mixed with any other id is rejected by domain validation (permission_wildcard_mixed).",
+          "type": "array",
+          "items": {
+            "$ref": "common.schema.json#/definitions/model_id"
+          },
+          "minItems": 1,
+          "maxItems": 10000,
+          "uniqueItems": true
+        },
+        "channel_ids": {
+          "description": "Channel ids this permission names. Exactly [\"*\"] means every enabled channel of pool_id; \"*\" mixed with any other id is rejected by domain validation (permission_wildcard_mixed).",
+          "type": "array",
+          "items": {
+            "anyOf": [
+              {
+                "$ref": "common.schema.json#/definitions/id"
+              },
+              {
+                "const": "*"
+              }
+            ]
+          },
+          "minItems": 1,
+          "maxItems": 10000,
+          "uniqueItems": true
+        },
+        "protocols": {
+          "description": "Protocols this permission names. Exactly [\"*\"] means every protocol including count_tokens, as far as the channel model capabilities allow; \"*\" mixed with any other value is rejected by domain validation (permission_wildcard_mixed).",
+          "type": "array",
+          "items": {
+            "anyOf": [
+              {
+                "$ref": "common.schema.json#/definitions/protocol"
+              },
+              {
+                "const": "*"
+              }
+            ]
+          },
+          "minItems": 1,
+          "maxItems": 5,
+          "uniqueItems": true
+        },
+        "groups": {
+          "type": "array",
+          "items": {
+            "$ref": "common.schema.json#/definitions/id"
+          },
+          "minItems": 0,
+          "maxItems": 1000,
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "pool_id",
+        "model_ids",
+        "channel_ids",
+        "protocols",
+        "groups"
+      ],
+      "additionalProperties": false
+    },
+    "caller": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "common.schema.json#/definitions/id"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "subject_enabled": {
+          "type": "boolean"
+        },
+        "token_hmac": {
+          "$ref": "common.schema.json#/definitions/sha256"
+        },
+        "token_hmac_aliases": {
+          "type": "array",
+          "items": {
+            "$ref": "common.schema.json#/definitions/sha256"
+          },
+          "maxItems": 1,
+          "uniqueItems": true
+        },
+        "expires_at": {
+          "anyOf": [
+            {
+              "$ref": "common.schema.json#/definitions/utc"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "allowed_ips": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "motai-ip-cidr",
+            "maxLength": 64
+          },
+          "minItems": 0,
+          "maxItems": 1000,
+          "uniqueItems": true
+        },
+        "permissions": {
+          "type": "array",
+          "items": {
+            "$ref": "config.schema.json#/definitions/permission"
+          },
+          "minItems": 0,
+          "maxItems": 10000
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "enabled",
+        "subject_enabled",
+        "token_hmac",
+        "expires_at",
+        "allowed_ips",
+        "permissions"
+      ],
+      "additionalProperties": false
+    },
+    "affinity": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "const": true
+        },
+        "ttl_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 31536000
+        },
+        "scope_version": {
+          "const": 1
+        }
+      },
+      "required": [
+        "enabled",
+        "ttl_seconds",
+        "scope_version"
+      ],
+      "additionalProperties": false
+    },
+    "failure_policy": {
+      "type": "object",
+      "properties": {
+        "max_attempts": {
+          "const": 1
+        },
+        "ordinary_failure_threshold": {
+          "const": 3
+        },
+        "ordinary_failure_window_seconds": {
+          "const": 300
+        },
+        "cooldown_seconds": {
+          "const": 60
+        },
+        "retry_after_max_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 86400
+        }
+      },
+      "required": [
+        "max_attempts",
+        "ordinary_failure_threshold",
+        "ordinary_failure_window_seconds",
+        "cooldown_seconds",
+        "retry_after_max_seconds"
+      ],
+      "additionalProperties": false
+    },
+    "config": {
+      "type": "object",
+      "properties": {
+        "format_version": {
+          "const": 1
+        },
+        "gen": {
+          "$ref": "common.schema.json#/definitions/decimal"
+        },
+        "pools": {
+          "type": "array",
+          "items": {
+            "$ref": "config.schema.json#/definitions/pool"
+          },
+          "minItems": 1,
+          "maxItems": 10000
+        },
+        "channels": {
+          "type": "array",
+          "items": {
+            "$ref": "config.schema.json#/definitions/channel"
+          },
+          "minItems": 0,
+          "maxItems": 10000
+        },
+        "models": {
+          "type": "array",
+          "items": {
+            "$ref": "config.schema.json#/definitions/model"
+          },
+          "minItems": 0,
+          "maxItems": 10000
+        },
+        "aliases": {
+          "type": "array",
+          "items": {
+            "$ref": "config.schema.json#/definitions/alias"
+          },
+          "minItems": 0,
+          "maxItems": 10000
+        },
+        "callers": {
+          "type": "array",
+          "items": {
+            "$ref": "config.schema.json#/definitions/caller"
+          },
+          "minItems": 0,
+          "maxItems": 10000
+        },
+        "affinity": {
+          "$ref": "config.schema.json#/definitions/affinity"
+        },
+        "failure_policy": {
+          "$ref": "config.schema.json#/definitions/failure_policy"
+        }
+      },
+      "required": [
+        "format_version",
+        "gen",
+        "pools",
+        "channels",
+        "models",
+        "aliases",
+        "callers",
+        "affinity",
+        "failure_policy"
+      ],
+      "additionalProperties": false
+    },
+    "file_ref": {
+      "type": "object",
+      "properties": {
+        "file": {
+          "type": "string",
+          "maxLength": 180,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*\\.json$"
+        },
+        "sha256": {
+          "$ref": "common.schema.json#/definitions/sha256"
+        }
+      },
+      "required": [
+        "file",
+        "sha256"
+      ],
+      "additionalProperties": false
+    },
+    "manifest": {
+      "type": "object",
+      "properties": {
+        "format_version": {
+          "const": 1
+        },
+        "gen": {
+          "$ref": "common.schema.json#/definitions/decimal"
+        },
+        "base_gen": {
+          "anyOf": [
+            {
+              "$ref": "common.schema.json#/definitions/decimal"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "config": {
+          "$ref": "config.schema.json#/definitions/file_ref"
+        },
+        "credentials": {
+          "$ref": "config.schema.json#/definitions/file_ref"
+        }
+      },
+      "required": [
+        "format_version",
+        "gen",
+        "base_gen",
+        "config",
+        "credentials"
+      ],
+      "additionalProperties": false
+    },
+    "credential": {
+      "type": "object",
+      "properties": {
+        "credential_ref": {
+          "$ref": "common.schema.json#/definitions/id"
+        },
+        "credential_version": {
+          "$ref": "common.schema.json#/definitions/decimal"
+        },
+        "secret": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 16384
+        }
+      },
+      "required": [
+        "credential_ref",
+        "credential_version",
+        "secret"
+      ],
+      "additionalProperties": false
+    },
+    "credentials": {
+      "type": "object",
+      "properties": {
+        "format_version": {
+          "const": 1
+        },
+        "gen": {
+          "$ref": "common.schema.json#/definitions/decimal"
+        },
+        "entries": {
+          "type": "array",
+          "items": {
+            "$ref": "config.schema.json#/definitions/credential"
+          },
+          "minItems": 0,
+          "maxItems": 10000
+        }
+      },
+      "required": [
+        "format_version",
+        "gen",
+        "entries"
+      ],
+      "additionalProperties": false
+    },
+    "desired_pointer": {
+      "type": "object",
+      "properties": {
+        "format_version": {
+          "const": 1
+        },
+        "gen": {
+          "$ref": "common.schema.json#/definitions/decimal"
+        },
+        "manifest": {
+          "$ref": "config.schema.json#/definitions/file_ref"
+        }
+      },
+      "required": [
+        "format_version",
+        "gen",
+        "manifest"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "$ref": "#/definitions/config"
+}

@@ -1,0 +1,14 @@
+CREATE SCHEMA IF NOT EXISTS motai;
+CREATE TABLE IF NOT EXISTS motai.schema_migrations(version integer PRIMARY KEY,applied_at timestamptz NOT NULL DEFAULT now());
+CREATE TABLE IF NOT EXISTS motai.config_generations(gen text PRIMARY KEY,manifest_file text NOT NULL,manifest_sha256 text NOT NULL,created_at timestamptz NOT NULL DEFAULT now());
+CREATE TABLE IF NOT EXISTS motai.gateway_state(singleton smallint PRIMARY KEY CHECK(singleton=1),committed_gen text REFERENCES motai.config_generations(gen),lkg_gen text REFERENCES motai.config_generations(gen));
+INSERT INTO motai.gateway_state(singleton) VALUES(1) ON CONFLICT DO NOTHING;
+CREATE TABLE IF NOT EXISTS motai.pool_state(pool_id text PRIMARY KEY,epoch bigint NOT NULL CHECK(epoch>0),routing_fingerprint text NOT NULL);
+REVOKE ALL ON SCHEMA motai FROM PUBLIC;
+REVOKE ALL ON ALL TABLES IN SCHEMA motai FROM PUBLIC;
+GRANT USAGE ON SCHEMA motai TO motai_activator,motai_runtime;
+GRANT SELECT ON motai.config_generations,motai.gateway_state,motai.pool_state TO motai_activator,motai_runtime;
+GRANT INSERT ON motai.config_generations TO motai_activator;
+GRANT UPDATE ON motai.gateway_state TO motai_activator;
+GRANT INSERT,UPDATE ON motai.pool_state TO motai_activator;
+INSERT INTO motai.schema_migrations(version) VALUES(1) ON CONFLICT DO NOTHING;

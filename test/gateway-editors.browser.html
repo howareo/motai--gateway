@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>墨台网关编辑器验收 · 合成数据</title>
+<link rel="stylesheet" href="/public/styles.css">
+<body>
+  <main style="max-width:1100px;margin:auto;padding:16px">
+    <h1>墨台网关编辑器验收</h1>
+    <p>真实生产模板与编辑器，仅合成目录和内存回执；不连接网关、不请求模型。</p>
+    <button id="edit-channel" class="button button-primary" type="button">编辑双池渠道</button>
+    <button id="new-channel" class="button button-secondary" type="button">新增渠道</button>
+    <p id="harness-status" role="status">正在载入生产模板</p>
+    <section id="callers"></section>
+    <dialog id="billing-settings" class="channel-settings-dialog" aria-labelledby="fixture-billing-title">
+      <h2 id="fixture-billing-title">合成余额设置</h2>
+      <p>这里只验证嵌套对话框与返回焦点，不配置任何真实账户。</p>
+      <button id="close-billing" class="button button-secondary" type="button">返回渠道</button>
+    </dialog>
+  </main>
+  <script type="module">
+    import { openGatewayEditor } from '/public/channel-editor/gateway-editor.js';
+    import { mountGatewayBilling } from '/public/channel-editor/billing.js';
+    import { mountCallerManager } from '/public/caller-editor/editor.js';
+
+    const source = new DOMParser().parseFromString(await (await fetch('/public/index.html')).text(), 'text/html');
+    for (const id of ['gateway-channel-dialog', 'gateway-channel-template']) document.body.append(source.getElementById(id));
+    const longModel = `synthetic/长模型-${'context-'.repeat(18)}end`;
+    const config = { gen: '1', pools: [{ id: 'openai', name: 'OpenAI 池' }, { id: 'secondary', name: '次池' }],
+      models: [{ id: longModel, vendor: 'openai' }],
+      channels: [{ id: 'shared', name: '合成双池渠道', poolId: 'openai', poolIds: ['openai', 'secondary'],
+        poolPriorities: { openai: 10, secondary: 3 }, baseUrl: 'https://synthetic.invalid', enabled: true,
+        hasCredential: true, priority: 10, weight: 1, testModel: longModel,
+        models: [{ modelId: longModel, upstreamModel: 'synthetic-upstream', capabilities: ['responses'] }] }],
+      callers: [{ id: 'fixture', name: '合成调用令牌', enabled: true, subjectEnabled: true, expiresAt: null, allowedIps: [],
+        permissions: [{ poolId: 'secondary', modelIds: [longModel], channelIds: ['shared'], protocols: ['responses'], groups: [] }] }] };
+    let saves = 0;
+    const status = document.getElementById('harness-status');
+    const api = async (path, options) => {
+      if (path === '/api/gateway/models/preview') return { observedAt: '2026-10-28T00:00:00Z',
+        models: Array.from({ length: 1000 }, (_, i) => ({ id: `synthetic/model-${String(i).padStart(4, '0')}`, capabilities: ['responses'] })) };
+      if (!['/api/gateway/channels/change', '/api/gateway/callers/change', '/api/gateway/reconcile'].includes(path)) throw new Error('Unexpected fixture API');
+      status.textContent = `生产模板已载入 · 仅内存保存 ${++saves} 次`;
+      let channelId;
+      if (path === '/api/gateway/channels/change') {
+        const change = JSON.parse(options.body).change;
+        if (change.action === 'create') {
+          channelId = `synthetic-created-${saves}`;
+          config.channels.push({ ...change.channel, id: channelId, hasCredential: true });
+        } else {
+          channelId = change.channelId;
+          Object.assign(config.channels.find((row) => row.id === channelId), change.channel);
+        }
+        config.gen = String(Number(config.gen) + 1);
+      }
+      return { activated: true, desiredGen: config.gen, committedGen: config.gen, servingGen: config.gen, config, channelId,
+        ...(path === '/api/gateway/callers/change' ? { oneTimeToken: 'SYNTHETIC_ONE_TIME_TOKEN_NOT_A_CREDENTIAL' } : {}) };
+    };
+    const text = (value) => { const node = document.createElement('p'); node.textContent = value; return node; };
+    const billing = document.getElementById('billing-settings');
+    let billingTrigger;
+    document.getElementById('close-billing').addEventListener('click', () => billing.close());
+    billing.addEventListener('close', () => billingTrigger?.focus());
+    const openChannel = (channel, trigger) => openGatewayEditor({ dialog: document.getElementById('gateway-channel-dialog'),
+      template: document.getElementById('gateway-channel-template'), config, channel, trigger, api, onSaved: () => {},
+      mountBilling: (root, channelId) => mountGatewayBilling({ root, channelId, getChannel: (id) => config.channels.find((row) => row.id === id),
+        renderCost: () => text('合成倍率 0.5×'), renderPrice: () => text('合成价格：输入 1 / 输出 5 / 缓存读取 0.1 / 缓存写入未知'),
+        renderWallet: () => text('合成余额 9.68'), openSettings: (_, __, trigger) => { billingTrigger = trigger; billing.showModal(); } }) });
+    document.getElementById('edit-channel').addEventListener('click', (event) => openChannel(config.channels[0], event.currentTarget));
+    document.getElementById('new-channel').addEventListener('click', (event) => openChannel(null, event.currentTarget));
+    mountCallerManager({ root: document.getElementById('callers'), getConfig: () => config, api, onSaved: () => {} });
+    status.textContent = '生产模板已载入 · 仅内存保存 0 次';
+  </script>
+</body>
+</html>

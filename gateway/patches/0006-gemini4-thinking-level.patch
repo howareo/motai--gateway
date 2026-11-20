@@ -1,0 +1,219 @@
+diff --git a/relay/gemini_handler.go b/relay/gemini_handler.go
+index 57010d8..5e7c5af 100644
+--- a/relay/gemini_handler.go
++++ b/relay/gemini_handler.go
+@@ -83,9 +83,6 @@ func GeminiHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *typ
+ 				}
+ 			}
+ 		}
+-		if request.GenerationConfig.ThinkingConfig == nil {
+-			relayconvert.ApplyGeminiThinkingConfig(request, info)
+-		}
+ 	}
+ 
+ 	adaptor := GetAdaptor(info.ApiType)
+@@ -144,6 +141,7 @@ func GeminiHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *typ
+ 		requestBody = common.NewReplayableBodyReader(storage)
+ 	} else {
+ 		// 使用 ConvertGeminiRequest 转换请求格式
++		relayconvert.ApplyGeminiThinkingConfig(request, info)
+ 		convertedRequest, err := adaptor.ConvertGeminiRequest(c, info, request)
+ 		if err != nil {
+ 			return types.NewError(err, types.ErrorCodeConvertRequestFailed, types.ErrOptionWithSkipRetry())
+diff --git a/relaykit/relayconvert/gemini4_reasoning_test.go b/relaykit/relayconvert/gemini4_reasoning_test.go
+new file mode 100644
+index 0000000..8e01d32
+--- /dev/null
++++ b/relaykit/relayconvert/gemini4_reasoning_test.go
+@@ -0,0 +1,71 @@
++package relayconvert
++
++import (
++	"context"
++	"encoding/json"
++	"testing"
++
++	"github.com/QuantumNous/new-api/relaykit/dto"
++	"github.com/QuantumNous/new-api/relaykit/relayconvert/convmeta"
++	"github.com/QuantumNous/new-api/relaykit/types"
++)
++
++func TestGemini4ThinkingLevelByModel(t *testing.T) {
++	cases := []struct {
++		name    string
++		model   string
++		request any
++		body    string
++		want    string
++	}{
++		{"hydrogen chat xhigh", "gemini-4-hydrogen", &dto.GeneralOpenAIRequest{}, `{"reasoning_effort":"xhigh"}`, "xhigh"},
++		{"argon chat xhigh", "gemini-4-argon", &dto.GeneralOpenAIRequest{}, `{"reasoning_effort":"xhigh"}`, "high"},
++		{"hydrogen responses max", "gemini-4-hydrogen", &dto.OpenAIResponsesRequest{}, `{"model":"gemini-4-hydrogen","input":"hi","reasoning":{"effort":"max"}}`, "max"},
++		{"argon native max", "gemini-4-argon", &dto.GeminiChatRequest{}, `{"generationConfig":{"thinkingConfig":{"thinkingLevel":"max"}}}`, "max"},
++		{"hydrogen native minimal", "gemini-4-hydrogen", &dto.GeminiChatRequest{}, `{"generationConfig":{"thinking_config":{"thinking_level":"MINIMAL"}}}`, "low"},
++		{"argon chat extra-body xhigh", "gemini-4-argon", &dto.GeneralOpenAIRequest{}, `{"extra_body":{"google":{"thinking_config":{"thinking_level":"xhigh"}}}}`, "high"},
++		{"hydrogen messages xhigh", "gemini-4-hydrogen", &dto.ClaudeRequest{}, `{"model":"gemini-4-hydrogen","messages":[{"role":"user","content":"hi"}],"thinking":{"type":"adaptive"},"output_config":{"effort":"xhigh"}}`, "xhigh"},
++		{"argon suffix max", "gemini-4-argon-max", &dto.GeneralOpenAIRequest{}, `{"reasoning_effort":"low"}`, "max"},
++		{"hydrogen default omitted", "gemini-4-hydrogen", &dto.GeneralOpenAIRequest{}, `{}`, ""},
++		{"gemini 3 native unchanged", "gemini-3.1-pro", &dto.GeminiChatRequest{}, `{"generationConfig":{"thinkingConfig":{"thinkingLevel":"minimal"}}}`, "minimal"},
++	}
++	for _, tc := range cases {
++		t.Run(tc.name, func(t *testing.T) {
++			if err := json.Unmarshal([]byte(tc.body), tc.request); err != nil {
++				t.Fatal(err)
++			}
++			info := &convmeta.Values{ChannelMetaAttached: true, UpstreamModelName: tc.model}
++			info.ConvOptions().Gemini.ThinkingAdapterEnabled = tc.name == "argon suffix max"
++			native, ok := tc.request.(*dto.GeminiChatRequest)
++			if ok {
++				ApplyGeminiThinkingConfig(native, info)
++			} else {
++				result, err := ConvertRequest(context.Background(), info, types.RelayFormatGemini, tc.request)
++				if err != nil {
++					t.Fatal(err)
++				}
++				native, ok = result.Value.(*dto.GeminiChatRequest)
++				if !ok {
++					t.Fatalf("unexpected converted type %T", result.Value)
++				}
++			}
++			config := native.GenerationConfig.ThinkingConfig
++			if tc.want == "" {
++				if config != nil || info.GetReasoningEffort() != "" {
++					t.Fatalf("default request injected config %+v or effort %q", config, info.GetReasoningEffort())
++				}
++				return
++			}
++			if config == nil || config.ThinkingLevel != tc.want || config.ThinkingBudget != nil {
++				t.Fatalf("got config %+v, want level %q without budget", config, tc.want)
++			}
++			effort := tc.want
++			if tc.model == "gemini-3.1-pro" {
++				effort = ""
++			}
++			if got := info.GetReasoningEffort(); got != effort {
++				t.Fatalf("logged effort %q, want %q", got, effort)
++			}
++		})
++	}
++}
+diff --git a/relaykit/relayconvert/internal/claude_messages/to_oai_chat_req.go b/relaykit/relayconvert/internal/claude_messages/to_oai_chat_req.go
+index 56e6663..be051d7 100644
+--- a/relaykit/relayconvert/internal/claude_messages/to_oai_chat_req.go
++++ b/relaykit/relayconvert/internal/claude_messages/to_oai_chat_req.go
+@@ -7,6 +7,7 @@ import (
+ 	"github.com/QuantumNous/new-api/relaykit/dto"
+ 	"github.com/QuantumNous/new-api/relaykit/relayconvert/convmeta"
+ 	kitutil "github.com/QuantumNous/new-api/relaykit/relayconvert/kitutil"
++	"github.com/QuantumNous/new-api/relaykit/relayconvert/reasoning"
+ )
+ 
+ const (
+@@ -65,6 +66,9 @@ func ClaudeMessagesRequestToOpenAIChat(claudeRequest dto.ClaudeRequest, info con
+ 			openAIRequest.Reasoning = reasoningJSON
+ 		}
+ 	} else if info != nil {
++		if reasoning.IsGemini4ThinkingLevelModel(convmeta.UpstreamModelName(info)) {
++			openAIRequest.ReasoningEffort = claudeRequest.GetEfforts()
++		}
+ 		thinkingSuffix := "-thinking"
+ 		if strings.HasSuffix(info.GetOriginModelName(), thinkingSuffix) &&
+ 			!strings.HasSuffix(openAIRequest.Model, thinkingSuffix) {
+diff --git a/relaykit/relayconvert/internal/oai_chat/to_gemini_chat_req.go b/relaykit/relayconvert/internal/oai_chat/to_gemini_chat_req.go
+index 2ebb934..094e0df 100644
+--- a/relaykit/relayconvert/internal/oai_chat/to_gemini_chat_req.go
++++ b/relaykit/relayconvert/internal/oai_chat/to_gemini_chat_req.go
+@@ -147,7 +147,7 @@ func OpenAIChatRequestToGeminiGenerateContent(c context.Context, textRequest dto
+ 		}
+ 	}
+ 
+-	if !adaptorWithExtraBody {
++	if !adaptorWithExtraBody || geminiRequest.GenerationConfig.ThinkingConfig != nil {
+ 		sharedgemini.ApplyThinkingConfig(&geminiRequest, info, textRequest)
+ 	}
+ 
+diff --git a/relaykit/relayconvert/internal/shared/gemini/request.go b/relaykit/relayconvert/internal/shared/gemini/request.go
+index ac4ce3a..191eb85 100644
+--- a/relaykit/relayconvert/internal/shared/gemini/request.go
++++ b/relaykit/relayconvert/internal/shared/gemini/request.go
+@@ -82,12 +82,47 @@ func AttachFirstTextThoughtSignature(opts *convmeta.Options, parts []dto.GeminiP
+ }
+ 
+ func ApplyThinkingConfig(geminiRequest *dto.GeminiChatRequest, info convmeta.Meta, oaiRequest ...dto.GeneralOpenAIRequest) {
+-	opts := convmeta.OptionsOf(info)
+-	if geminiRequest == nil || info == nil || !opts.Gemini.ThinkingAdapterEnabled {
++	if geminiRequest == nil || info == nil {
+ 		return
+ 	}
+ 
++	opts := convmeta.OptionsOf(info)
+ 	modelName := convmeta.UpstreamModelName(info)
++	if modelName == "" && len(oaiRequest) > 0 {
++		modelName = oaiRequest[0].Model
++	}
++	config := geminiRequest.GenerationConfig.ThinkingConfig
++	if reasoning.IsGemini4ThinkingLevelModel(modelName) {
++		if config != nil {
++			if level := reasoning.Gemini4ThinkingLevel(modelName, config.ThinkingLevel); level != "" {
++				config.ThinkingLevel = level
++				config.ThinkingBudget = nil
++				info.SetReasoningEffort(level)
++			}
++			return
++		}
++
++		var effort string
++		if opts.Gemini.ThinkingAdapterEnabled {
++			_, effort, _ = reasoning.TrimEffortSuffix(modelName)
++		}
++		if effort == "" && len(oaiRequest) > 0 {
++			effort = oaiRequest[0].ReasoningEffort
++		}
++		if level := reasoning.Gemini4ThinkingLevel(modelName, effort); level != "" {
++			geminiRequest.GenerationConfig.ThinkingConfig = &dto.GeminiThinkingConfig{
++				IncludeThoughts: true,
++				ThinkingLevel:   level,
++			}
++			info.SetReasoningEffort(level)
++			return
++		}
++	}
++	if !opts.Gemini.ThinkingAdapterEnabled || config != nil {
++		return
++	}
++
++	modelName = convmeta.UpstreamModelName(info)
+ 	isNew25Pro := strings.HasPrefix(modelName, "gemini-2.5-pro") &&
+ 		!strings.HasPrefix(modelName, "gemini-2.5-pro-preview-05-06") &&
+ 		!strings.HasPrefix(modelName, "gemini-2.5-pro-preview-03-25")
+diff --git a/relaykit/relayconvert/reasoning/gemini4.go b/relaykit/relayconvert/reasoning/gemini4.go
+new file mode 100644
+index 0000000..1c77820
+--- /dev/null
++++ b/relaykit/relayconvert/reasoning/gemini4.go
+@@ -0,0 +1,25 @@
++package reasoning
++
++import "strings"
++
++func IsGemini4ThinkingLevelModel(model string) bool {
++	model = strings.ToLower(model)
++	return strings.HasPrefix(model, "gemini-4-argon") || strings.HasPrefix(model, "gemini-4-hydrogen")
++}
++
++// Gemini4ThinkingLevel applies the model-specific rules from upstream New API #8367.
++func Gemini4ThinkingLevel(model, effort string) string {
++	switch effort := strings.ToLower(strings.TrimSpace(effort)); effort {
++	case "minimal":
++		return "low"
++	case "xhigh":
++		if strings.HasPrefix(strings.ToLower(model), "gemini-4-argon") {
++			return "high"
++		}
++		return effort
++	case "low", "medium", "high", "max":
++		return effort
++	default:
++		return ""
++	}
++}

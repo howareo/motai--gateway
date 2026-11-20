@@ -1,0 +1,45 @@
+diff --git a/controller/relay.go b/controller/relay.go
+--- a/controller/relay.go
++++ b/controller/relay.go
+@@ -127,6 +127,8 @@
+ 		return
+ 	}
+ 
++	defer func() { service.ObserveMotaiTerminal(c, relayInfo, newAPIError) }()
++
+ 	needSensitiveCheck := setting.ShouldCheckPromptSensitive()
+ 	needCountToken := constant.CountToken
+ 	// Avoid building huge CombineText (strings.Join) when token counting and sensitive check are both disabled.
+diff --git a/relay/channel/api_request.go b/relay/channel/api_request.go
+--- a/relay/channel/api_request.go
++++ b/relay/channel/api_request.go
+@@ -529,7 +529,9 @@
+ 		}
+ 	}
+ 
++	req = service.TraceMotaiRequest(c, req)
+ 	resp, err := relayClient.Do(req)
++	service.ObserveMotaiHTTP(c, resp)
+ 	if err != nil {
+ 		logger.LogError(c, "do request failed: "+err.Error())
+ 		return nil, types.NewError(err, types.ErrorCodeDoRequestFailed, types.ErrOptionWithHideErrMsg("upstream error: do request failed"))
+diff --git a/relay/channel/openai/relay_responses.go b/relay/channel/openai/relay_responses.go
+--- a/relay/channel/openai/relay_responses.go
++++ b/relay/channel/openai/relay_responses.go
+@@ -33,6 +33,8 @@
+ 	if oaiError := responsesResponse.GetOpenAIError(); oaiError != nil && oaiError.Type != "" {
+ 		return nil, types.WithOpenAIError(*oaiError, resp.StatusCode)
+ 	}
++
++	service.ObserveMotaiResponses(c, "", &responsesResponse)
+ 
+ 	// 写入新的 response body
+ 	service.IOCopyBytesGracefully(c, resp, responseBody)
+@@ -94,6 +96,7 @@
+ 			sr.Error(err)
+ 			return
+ 		}
++		service.ObserveMotaiResponses(c, streamResponse.Type, streamResponse.Response)
+ 		sendResponsesStreamData(c, streamResponse, data)
+ 		switch streamResponse.Type {
+ 		case "response.completed", "response.done":

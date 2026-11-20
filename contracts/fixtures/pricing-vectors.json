@@ -1,0 +1,342 @@
+{
+  "fixture_version": 1,
+  "evidence": "synthetic_contract",
+  "timestamp": 1792944000,
+  "vectors": [
+    {
+      "id": "openai_known_inclusion",
+      "usage_vector_id": "openai_inclusive",
+      "record": {
+        "model": "contract-model",
+        "family": "openai",
+        "effectiveFrom": 0,
+        "effectiveTo": null,
+        "maxContextTokens": null,
+        "currency": "USD",
+        "rates": {
+          "input": 2,
+          "cacheRead": 0.2,
+          "cacheWrite": 3,
+          "cacheWrite1h": 4,
+          "cacheWriteUnknown": 5,
+          "output": 10
+        }
+      },
+      "expected": {
+        "status": "complete",
+        "official_cost": 0.000378,
+        "cache_input": 100,
+        "cache_read": 40,
+        "cache_hit_rate": 0.4
+      }
+    },
+    {
+      "id": "openai_known_zero",
+      "usage_vector_id": "openai_explicit_zero",
+      "record": {
+        "model": "contract-model",
+        "family": "openai",
+        "effectiveFrom": 0,
+        "effectiveTo": null,
+        "maxContextTokens": null,
+        "currency": "USD",
+        "rates": {
+          "input": 2,
+          "cacheRead": 0.2,
+          "cacheWrite": 3,
+          "cacheWrite1h": 4,
+          "cacheWriteUnknown": 5,
+          "output": 10
+        }
+      },
+      "expected": {
+        "status": "complete",
+        "official_cost": 0,
+        "cache_input": 0,
+        "cache_read": 0,
+        "cache_hit_rate": null
+      }
+    },
+    {
+      "id": "cache_contradiction_keeps_independent_price",
+      "usage_vector_id": "openai_cache_contradiction_preserves_output",
+      "record": {
+        "model": "contract-model",
+        "family": "openai",
+        "effectiveFrom": 0,
+        "effectiveTo": null,
+        "maxContextTokens": null,
+        "currency": "USD",
+        "rates": {
+          "input": 2,
+          "cacheRead": 0.2,
+          "cacheWrite": 3,
+          "cacheWrite1h": 4,
+          "cacheWriteUnknown": 5,
+          "output": 10
+        }
+      },
+      "expected": {
+        "status": "partial",
+        "official_cost": 0.000258,
+        "cache_input": 0,
+        "cache_read": 0,
+        "cache_hit_rate": null
+      }
+    },
+    {
+      "id": "failed_partial_is_known_amount",
+      "usage_vector_id": "openai_failed_partial_keeps_known",
+      "record": {
+        "model": "contract-model",
+        "family": "openai",
+        "effectiveFrom": 0,
+        "effectiveTo": null,
+        "maxContextTokens": null,
+        "currency": "USD",
+        "rates": {
+          "input": 2,
+          "cacheRead": 0.2,
+          "cacheWrite": 3,
+          "cacheWrite1h": 4,
+          "cacheWriteUnknown": 5,
+          "output": 10
+        }
+      },
+      "expected": {
+        "status": "partial",
+        "official_cost": 0.000234,
+        "cache_input": 0,
+        "cache_read": 0,
+        "cache_hit_rate": null
+      }
+    },
+    {
+      "id": "anthropic_mixed_ttl_exact",
+      "usage_vector_id": "anthropic_additive_ttl_mix",
+      "record": {
+        "model": "contract-model",
+        "family": "anthropic",
+        "effectiveFrom": 0,
+        "effectiveTo": null,
+        "maxContextTokens": null,
+        "currency": "USD",
+        "rates": {
+          "input": 2,
+          "cacheRead": 0.2,
+          "cacheWrite": 3,
+          "cacheWrite1h": 4,
+          "cacheWriteUnknown": 5,
+          "output": 10
+        }
+      },
+      "expected": {
+        "status": "complete",
+        "official_cost": 0.000376,
+        "cache_input": 80,
+        "cache_read": 30,
+        "cache_hit_rate": 0.375
+      }
+    },
+    {
+      "id": "unknown_ttl_not_five_minutes",
+      "usage_vector_id": "anthropic_unknown_ttl_is_separate",
+      "record": {
+        "model": "contract-model",
+        "family": "anthropic",
+        "effectiveFrom": 0,
+        "effectiveTo": null,
+        "maxContextTokens": null,
+        "currency": "USD",
+        "rates": {
+          "input": 2,
+          "cacheRead": 0.2,
+          "cacheWrite": 3,
+          "cacheWrite1h": 4,
+          "cacheWriteUnknown": 5,
+          "output": 10
+        }
+      },
+      "expected": {
+        "status": "complete",
+        "official_cost": 0.000426,
+        "cache_input": 80,
+        "cache_read": 30,
+        "cache_hit_rate": 0.375
+      }
+    },
+    {
+      "id": "unknown_ttl_unpriced_known_output",
+      "usage_vector_id": "anthropic_unknown_ttl_is_separate",
+      "record": {
+        "model": "contract-model",
+        "family": "anthropic",
+        "effectiveFrom": 0,
+        "effectiveTo": null,
+        "maxContextTokens": null,
+        "currency": "USD",
+        "rates": {
+          "input": 2,
+          "cacheRead": 0.2,
+          "cacheWrite": 3,
+          "cacheWrite1h": 4,
+          "output": 10
+        }
+      },
+      "expected": {
+        "status": "partial",
+        "official_cost": 0.000226,
+        "cache_input": 80,
+        "cache_read": 30,
+        "cache_hit_rate": 0.375
+      }
+    },
+    {
+      "id": "anthropic_invalid_ttl_independent_categories",
+      "usage_vector_id": "anthropic_invalid_ttl_keeps_output",
+      "record": {
+        "model": "contract-model",
+        "family": "anthropic",
+        "effectiveFrom": 0,
+        "effectiveTo": null,
+        "maxContextTokens": null,
+        "currency": "USD",
+        "rates": {
+          "input": 2,
+          "cacheRead": 0.2,
+          "cacheWrite": 3,
+          "cacheWrite1h": 4,
+          "cacheWriteUnknown": 5,
+          "output": 10
+        }
+      },
+      "expected": {
+        "status": "partial",
+        "official_cost": 0.000226,
+        "cache_input": 45,
+        "cache_read": 30,
+        "cache_hit_rate": 0.6666666666666666
+      }
+    },
+    {
+      "id": "deepseek_hit_miss_price",
+      "usage_vector_id": "deepseek_hit_miss",
+      "record": {
+        "model": "contract-model",
+        "family": "deepseek",
+        "effectiveFrom": 0,
+        "effectiveTo": null,
+        "maxContextTokens": null,
+        "currency": "USD",
+        "rates": {
+          "input": 2,
+          "cacheRead": 0.2,
+          "cacheWrite": 3,
+          "cacheWrite1h": 4,
+          "cacheWriteUnknown": 5,
+          "output": 10
+        }
+      },
+      "expected": {
+        "status": "complete",
+        "official_cost": 0.000274,
+        "cache_input": 100,
+        "cache_read": 70,
+        "cache_hit_rate": 0.7
+      }
+    },
+    {
+      "id": "gemini_unknown_reasoning_not_added",
+      "usage_vector_id": "gemini_thoughts_relation_unproven",
+      "record": {
+        "model": "contract-model",
+        "family": "gemini",
+        "effectiveFrom": 0,
+        "effectiveTo": null,
+        "maxContextTokens": null,
+        "currency": "USD",
+        "rates": {
+          "input": 2,
+          "cacheRead": 0.2,
+          "cacheWrite": 3,
+          "cacheWrite1h": 4,
+          "cacheWriteUnknown": 5,
+          "output": 10
+        }
+      },
+      "expected": {
+        "status": "partial",
+        "official_cost": 0.000464,
+        "cache_input": 100,
+        "cache_read": 20,
+        "cache_hit_rate": 0.2
+      }
+    },
+    {
+      "id": "missing_price_does_not_change_hit_rate",
+      "usage_vector_id": "openai_inclusive",
+      "record": null,
+      "expected": {
+        "status": "unknown",
+        "official_cost": null,
+        "cache_input": 100,
+        "cache_read": 40,
+        "cache_hit_rate": 0.4
+      }
+    },
+    {
+      "id": "missing_tier_unknown",
+      "usage_vector_id": "openai_inclusive",
+      "record": {
+        "model": "contract-model",
+        "family": "openai",
+        "effectiveFrom": 0,
+        "effectiveTo": null,
+        "maxContextTokens": 99,
+        "currency": "USD",
+        "rates": {
+          "input": 2,
+          "cacheRead": 0.2,
+          "cacheWrite": 3,
+          "cacheWrite1h": 4,
+          "cacheWriteUnknown": 5,
+          "output": 10
+        }
+      },
+      "expected": {
+        "status": "unknown",
+        "official_cost": null,
+        "cache_input": 100,
+        "cache_read": 40,
+        "cache_hit_rate": 0.4
+      }
+    },
+    {
+      "id": "at_context_tier_boundary",
+      "usage_vector_id": "openai_inclusive",
+      "record": {
+        "model": "contract-model",
+        "family": "openai",
+        "effectiveFrom": 0,
+        "effectiveTo": null,
+        "maxContextTokens": 100,
+        "currency": "USD",
+        "rates": {
+          "input": 2,
+          "cacheRead": 0.2,
+          "cacheWrite": 3,
+          "cacheWrite1h": 4,
+          "cacheWriteUnknown": 5,
+          "output": 10
+        }
+      },
+      "expected": {
+        "status": "complete",
+        "official_cost": 0.000378,
+        "cache_input": 100,
+        "cache_read": 40,
+        "cache_hit_rate": 0.4
+      }
+    }
+  ]
+}

@@ -1,0 +1,429 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+  <meta name="color-scheme" content="dark">
+  <title>墨台 · New API Ops</title>
+  <link rel="icon" href="/motai-mark.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="product" href="#overview" aria-label="墨台控制台首页">
+      <span class="product-mark"><img src="/motai-mark.svg" alt="" width="28" height="28"></span>
+      <span><strong>墨台</strong><small>New API Ops · Local</small></span>
+    </a>
+    <nav class="page-nav" aria-label="主要导航">
+      <a href="#overview" data-page="overview" aria-current="page"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg><span>概览</span></a>
+      <a href="#channels" data-page="channels"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h17m-4-4 4 4-4 4M21 17H4m4-4-4 4 4 4"/></svg><span>渠道</span></a>
+      <a href="#requests" data-page="requests"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M8 5h13M8 12h13M8 19h13M3 5h.01M3 12h.01M3 19h.01"/></svg><span>请求</span></a>
+      <a href="#settings" data-page="settings"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h7m4 0h7M3 18h7m4 0h7M10 3v6m4 6v6"/></svg><span>设置</span></a>
+    </nav>
+    <div class="topbar-state">
+      <span id="connection-state" class="connection-state" aria-live="polite">连接中</span>
+      <span id="overview-detail" class="update-time">正在读取数据</span>
+    </div>
+    <div class="topbar-actions">
+      <button id="refresh-button" class="icon-command" type="button" title="刷新数据" aria-label="刷新数据">↻</button>
+      <i class="heartbeat" aria-hidden="true"></i>
+    </div>
+  </header>
+
+  <main id="main-content" class="content-wrap">
+    <div id="gateway-config-status" class="dialog-note" role="status" hidden><span id="gateway-config-status-text"></span> <button id="gateway-config-reconcile" type="button" class="button button-secondary">重试生效</button> <button id="gateway-config-discard" type="button" class="button button-secondary" hidden>放弃被拒绝的配置</button></div>
+    <i class="sticky-sentinel" data-sticky-sentinel="period" aria-hidden="true"></i>
+    <div class="period-bar" role="group" aria-label="统计周期">
+      <div class="period-control">
+        <button type="button" data-period="today" class="active">今天</button>
+        <button type="button" data-period="yesterday">昨天</button>
+        <button type="button" data-period="hours-24">24 小时</button>
+        <button type="button" data-period="hours-168">7 天</button>
+        <button type="button" data-period="hours-720">30 天</button>
+        <button type="button" data-period="hours-2160">90 天</button>
+        <button type="button" data-period="all">全部</button>
+      </div>
+    </div>
+
+    <div id="page-overview" class="page" data-page-panel="overview">
+    <section id="starmap" class="starmap-panel section-block" aria-label="路由星图">
+      <div class="starmap-head">
+        <div><h2>路由星图</h2><span>网关核心 → 厂商池 → 渠道；卫星大小为请求量，绿色粒子为成本占比</span></div>
+        <ul class="starmap-legend" aria-label="图例">
+          <li class="legend-healthy">健康</li><li class="legend-failing">失败</li><li class="legend-unknown">未知</li><li class="legend-disabled">停用</li>
+        </ul>
+      </div>
+      <div id="starmap-stage" class="starmap-stage">
+        <canvas id="starmap-canvas" aria-hidden="true"></canvas>
+        <div id="starmap-tip" class="starmap-tip" hidden></div>
+        <p id="starmap-empty" class="starmap-empty" hidden>暂无渠道数据</p>
+      </div>
+      <p id="starmap-summary" class="sr-only"></p>
+    </section>
+    <section class="metric-matrix" aria-label="关键指标">
+      <article class="metric"><span>可用渠道</span><strong id="metric-channels"></strong><small id="metric-channel-note"></small></article>
+      <article class="metric"><span>请求数</span><strong id="metric-requests"></strong><small id="metric-request-note"></small></article>
+      <article class="metric"><span>Token 总量</span><strong id="metric-tokens"></strong><small id="metric-token-note"></small></article>
+      <article class="metric metric-latency"><span>平均总耗时</span><strong id="metric-latency"></strong><small id="metric-latency-note"></small></article>
+      <article class="metric metric-money"><span>采购真实成本</span><strong id="metric-cost"></strong><small id="metric-cost-note">按渠道采购倍率</small></article>
+      <article class="metric metric-cache-read"><span>缓存读取</span><strong id="metric-cache-read"></strong><small>上游原始 usage</small>
+        <svg id="metric-cache-gauge" class="gauge" viewBox="0 0 44 44" role="img" aria-label="缓存命中率" hidden><circle class="gauge-track" cx="22" cy="22" r="17"/><circle class="gauge-arc" cx="22" cy="22" r="17"/><text class="gauge-text" x="22" y="26" text-anchor="middle"></text></svg>
+      </article>
+      <article class="metric metric-cache-write"><span>缓存写入</span><strong id="metric-cache-create"></strong><small>独立 Token 类别，非输入附加费</small></article>
+      <article class="metric"><span>自动切换</span><strong id="metric-failover"></strong><small id="metric-failover-note"></small></article>
+    </section>
+
+    <section id="upstream-alert" class="upstream-alert section-block" aria-live="polite" hidden>
+      <div>
+        <span>上游错误记录</span>
+        <strong id="upstream-alert-title"></strong>
+        <small id="upstream-alert-detail"></small>
+      </div>
+      <button id="view-upstream-errors" class="button button-secondary" type="button">查看失败请求</button>
+    </section>
+
+    <section class="analytics-grid section-block">
+      <article class="panel model-panel">
+        <div class="panel-heading">
+          <div><h2 id="cost-distribution-title">渠道成本分布</h2><span>请求时点官方价格 × 当前渠道倍率</span></div>
+          <div class="distribution-actions">
+            <div class="distribution-control" role="group" aria-label="成本分布维度">
+              <button type="button" class="active" data-cost-distribution="channel" aria-pressed="true">按渠道</button>
+              <button type="button" data-cost-distribution="model-test" aria-pressed="false">模型测试</button>
+            </div>
+            <strong id="model-total" class="panel-total"></strong>
+          </div>
+        </div>
+        <div id="model-list" class="model-list" aria-label="渠道成本分布"></div>
+      </article>
+      <article class="panel trend-panel">
+        <div class="panel-heading">
+          <div><h2>缓存命中率趋势</h2><span>按 Token 加权，输出不计入分母</span></div>
+          <select id="trend-channel" aria-label="趋势渠道"><option value="">全部渠道</option></select>
+        </div>
+        <div id="trend-summary" class="trend-summary" aria-label="所选渠道 Token 汇总"></div>
+        <div id="trend-chart" class="trend-chart" aria-label="缓存命中率趋势图"></div>
+      </article>
+    </section>
+    </div>
+
+    <div id="page-channels" class="page" data-page-panel="channels" hidden>
+    <section id="channels" class="section-block data-section">
+      <div class="section-heading">
+        <div><h2>上游渠道自动探活</h2><span id="channel-summary"></span></div>
+        <div class="section-actions">
+          <button id="channel-health-settings-button" class="button button-secondary" type="button">探活设置</button>
+          <button id="wallet-refresh-all" class="icon-command" type="button" title="刷新全部上游余额" aria-label="刷新全部上游余额">↻</button>
+          <button id="add-channel-button" class="button button-primary" type="button">＋ 添加渠道</button>
+        </div>
+      </div>
+      <div class="table-frame">
+        <table class="data-table channel-table channel-cards">
+          <colgroup><col><col><col><col><col><col><col><col></colgroup>
+          <thead><tr><th>渠道</th><th>模型</th><th>路由配置</th><th>成本倍率</th><th>折算模型价格</th><th>上游余额</th><th>自动探活</th><th>操作</th></tr></thead>
+          <tbody id="channel-body"></tbody>
+        </table>
+        <div id="channel-empty" class="empty-state" hidden>暂无渠道数据</div>
+      </div>
+    </section>
+    </div>
+
+    <div id="page-requests" class="page" data-page-panel="requests" hidden>
+    <section id="requests" class="section-block data-section requests-section">
+      <i class="sticky-sentinel" data-sticky-sentinel="heading" aria-hidden="true"></i>
+      <div class="section-heading requests-heading">
+        <div><h2>最近请求与上游错误</h2><strong id="request-summary" class="request-summary" aria-live="polite" hidden></strong><span class="request-subtitle">成功请求计成本，失败尝试保留原始错误</span></div>
+        <div class="request-tools">
+          <button id="request-filter-toggle" class="button button-secondary filter-toggle" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="request-filters">筛选<span id="request-filter-count" class="filter-count" hidden></span></button>
+          <div id="request-filters" class="filters" role="group" aria-label="请求筛选">
+            <div class="sheet-head"><strong>筛选请求</strong><button id="request-filter-done" class="button button-primary" type="button">完成</button></div>
+            <div id="request-sheet-periods" class="period-control sheet-periods" role="group" aria-label="统计周期"></div>
+            <select id="channel-filter" aria-label="筛选渠道"><option value="">全部渠道</option></select>
+            <select id="pool-filter" aria-label="筛选分组"><option value="">全部分组</option></select>
+            <select id="model-filter" aria-label="筛选模型"><option value="">全部模型</option></select>
+            <select id="status-filter" aria-label="筛选结果"><option value="">全部结果</option><option value="success">仅成功</option><option value="error">仅失败</option></select>
+            <select id="stream-filter" aria-label="筛选流式"><option value="">全部请求</option><option value="stream">仅流式</option><option value="nonstream">仅非流式</option><option value="failover">仅自动切换</option></select>
+          </div>
+          <button id="request-refresh-button" class="icon-command compact-command" type="button" title="刷新最近请求" aria-label="刷新最近请求">↻</button>
+        </div>
+      </div>
+      <div id="active-filters" class="active-filters" aria-label="已生效的筛选"></div>
+      <div id="filter-backdrop" class="sheet-backdrop" hidden></div>
+      <div class="table-frame">
+        <table class="data-table request-table">
+          <colgroup><col><col><col><col><col><col><col></colgroup>
+          <thead><tr><th>时间</th><th>渠道 / 路径</th><th>模型</th><th>推理强度</th><th>Token 明细 / 错误</th><th>采购真实成本</th><th>延迟</th></tr></thead>
+          <tbody id="request-body"></tbody>
+        </table>
+        <div id="request-empty" class="empty-state" hidden>暂无符合条件的请求</div>
+        <nav id="request-pagination" class="request-pagination" aria-label="请求分页" hidden>
+          <span id="request-page-summary"></span>
+          <div class="pagination-controls">
+            <button id="request-page-first" class="icon-command pagination-button" type="button" title="首页" aria-label="首页">«</button>
+            <button id="request-page-prev" class="icon-command pagination-button" type="button" title="上一页" aria-label="上一页">‹</button>
+            <strong id="request-page-current"></strong>
+            <button id="request-page-next" class="icon-command pagination-button" type="button" title="下一页" aria-label="下一页">›</button>
+            <button id="request-page-last" class="icon-command pagination-button" type="button" title="末页" aria-label="末页">»</button>
+          </div>
+        </nav>
+      </div>
+    </section>
+    </div>
+
+    <div id="page-settings" class="page" data-page-panel="settings" hidden>
+    <section id="settings" class="section-block data-section settings-page">
+      <div class="section-heading"><div><h2>设置</h2><span>API 密钥、分组授权与网关运行偏好</span></div></div>
+      <div class="settings-page-tabs" role="tablist" aria-label="设置分类">
+        <button id="settings-keys-tab" type="button" role="tab" aria-selected="true" aria-controls="settings-api-keys" data-settings-panel="settings-api-keys">API 密钥</button>
+        <button id="settings-runtime-tab" type="button" role="tab" aria-selected="false" aria-controls="settings-runtime" tabindex="-1" data-settings-panel="settings-runtime">运行设置</button>
+      </div>
+      <div id="settings-api-keys" role="tabpanel" aria-labelledby="settings-keys-tab">
+        <div id="settings-callers-slot" class="settings-callers-slot"><p id="settings-callers-note" class="form-hint" hidden>API 密钥及分组授权仅在网关模式下可用。</p></div>
+      </div>
+      <div id="settings-runtime" role="tabpanel" aria-labelledby="settings-runtime-tab" hidden>
+        <div class="settings-column">
+          <form id="channel-health-settings-form" class="settings-card">
+            <h3>自动探活</h3>
+            <p class="form-hint">调整后从下一轮开始生效。</p>
+            <label class="channel-health-interval-field">探活间隔（分钟）<input id="channel-health-interval" type="number" min="1" max="1440" step="1" inputmode="numeric" required></label>
+            <p id="channel-health-settings-status" class="form-status" role="status" aria-live="polite"></p>
+            <div class="dialog-actions"><button id="save-channel-health-settings" class="button button-primary" type="submit">保存</button></div>
+          </form>
+          <form id="cost-sync-settings-form" class="settings-card">
+            <h3>倍率同步</h3>
+            <p class="form-hint">仅同步已开启自动同步的渠道。保存后重新计时；上游自动任务停用时保持停用。</p>
+            <label class="channel-health-interval-field">拉取间隔（分钟）<input id="cost-sync-interval" type="number" min="1" max="1440" step="1" inputmode="numeric" required></label>
+            <p id="cost-sync-settings-status" class="form-status" role="status" aria-live="polite"></p>
+            <div class="dialog-actions"><button id="save-cost-sync-settings" class="button button-primary" type="submit">保存</button></div>
+          </form>
+          <div class="settings-card">
+            <h3>上游余额</h3>
+            <p class="form-hint">各渠道的余额来源与管理凭据在渠道行的余额入口中配置；这里可手动刷新全部渠道余额。</p>
+            <div class="dialog-actions"><button id="settings-wallet-refresh-all" class="button button-secondary" type="button">刷新全部上游余额</button></div>
+          </div>
+          <div class="settings-card">
+            <h3>动态效果</h3>
+            <label class="settings-check"><input id="settings-reduce-motion" type="checkbox">减少动态</label>
+            <p class="form-hint">仅对当前页面会话生效，刷新后恢复；系统“减少动态”偏好始终优先。</p>
+          </div>
+        </div>
+      </div>
+    </section>
+    <section id="model-prices" class="section-block data-section">
+      <div class="section-heading">
+        <div><h2>模型价格</h2><span id="pricing-page-summary"></span></div>
+        <div class="section-actions"><button id="refresh-pricing-sync" class="button button-secondary" type="button">立即同步</button></div>
+      </div>
+      <div class="table-frame">
+        <table class="data-table pricing-table">
+          <thead><tr><th>模型</th><th>协议</th><th>输入 $/M</th><th>输出 $/M</th><th>缓存读 $/M</th><th>缓存写 $/M</th><th>渠道</th><th>价格来源</th></tr></thead>
+          <tbody id="pricing-sync-body"></tbody>
+        </table>
+        <div id="pricing-sync-empty" class="empty-state" hidden>尚无模型价格记录</div>
+      </div>
+    </section>
+    </div>
+  </main>
+
+  <dialog id="request-detail-dialog" class="request-detail-dialog" aria-labelledby="request-detail-title">
+    <div class="dialog-shell">
+      <div class="dialog-heading">
+        <div><span class="dialog-kicker">REQUEST</span><h2 id="request-detail-title">请求详情</h2><p id="request-detail-subtitle"></p></div>
+        <button id="close-request-detail" class="icon-button" type="button" aria-label="关闭请求详情" title="关闭">×</button>
+      </div>
+      <dl id="request-detail-fields" class="request-detail-fields"></dl>
+    </div>
+  </dialog>
+
+  <dialog id="gateway-channel-dialog" class="gateway-channel-dialog" aria-labelledby="gateway-editor-title" aria-describedby="gateway-editor-summary"></dialog>
+  <template id="gateway-channel-template">
+    <form class="gateway-editor-shell channel-editor-single" novalidate>
+      <header class="dialog-heading channel-settings-heading"><div><span class="dialog-kicker">CHANNEL</span><h2 id="gateway-editor-title" data-editor-title></h2><p id="gateway-editor-summary" data-editor-summary></p></div><button type="button" class="icon-button" data-editor-close aria-label="关闭渠道编辑器">×</button></header>
+      <nav class="channel-editor-nav" aria-label="跳转到渠道设置区域">
+        <button type="button" data-editor-jump="basic">连接</button>
+        <button type="button" data-editor-jump="models">模型与探活</button>
+        <button type="button" data-editor-jump="groups">名称与分组</button>
+        <button type="button" data-editor-jump="advanced">高级</button>
+        <button type="button" data-editor-jump="billing">价格与余额</button>
+      </nav>
+      <div class="gateway-editor-body">
+        <section id="gateway-panel-basic" data-editor-panel="basic" aria-labelledby="gateway-heading-basic">
+          <h3 id="gateway-heading-basic" tabindex="-1">01 · 连接上游</h3>
+          <fieldset class="settings-group"><legend class="sr-only">连接信息</legend><div class="settings-grid">
+            <label class="wide">上游地址<input name="baseUrl" type="url" inputmode="url" autocomplete="off" required placeholder="https://api.example.com"></label>
+            <label class="wide">API 密钥<input name="credentialValue" type="password" autocomplete="new-password"></label>
+            <p class="wide form-hint" data-editor-key-mode></p>
+            <p class="wide form-hint" data-editor-key-note>旧 Key 不回填，临时 Key 只保留于当前渠道草稿，关闭或切换渠道时清除。</p>
+            <div class="wide model-picker-actions"><button type="button" class="button button-secondary" data-editor-confirm-key hidden>确认当前目标沿用已有凭据</button><button type="button" class="button button-tertiary danger" data-editor-clear-key>清除已存凭据</button></div>
+            <label>上游接口<select name="protocol"><option value="responses">Responses</option><option value="chat_completions">Chat Completions</option><option value="messages">Messages</option><option value="gemini_generate_content">Gemini Generate Content</option><option value="count_tokens">Count Tokens</option></select><span class="form-hint">上游实际支持的请求接口，与模型名称和分组无关。</span></label>
+            <label>路径 / 格式适配器<select name="adapter"><option value="">按入口协议（默认）</option><option value="openai">OpenAI 兼容</option><option value="anthropic">Anthropic / Claude</option><option value="deepseek">DeepSeek</option><option value="xai">xAI</option><option value="moonshot">Kimi / Moonshot</option><option value="gemini">Gemini 原生</option></select><span class="form-hint">决定路径和格式转换，不代表选择了哪个接口；GLM 等兼容中转可选 OpenAI 兼容。</span></label>
+          </div><p class="form-hint" data-editor-protocol-note></p>
+          <div class="model-fetch-row"><button type="button" class="button button-primary" data-editor-fetch>拉取模型目录</button><span class="form-hint" data-editor-fetch-status role="status" aria-live="polite"></span></div>
+          <p class="form-hint">只读取模型目录，不调用模型生成；无需先保存渠道。</p></fieldset>
+        </section>
+        <section id="gateway-panel-models" data-editor-panel="models" aria-labelledby="gateway-heading-models">
+          <h3 id="gateway-heading-models" tabindex="-1">02 · 模型与探活</h3>
+          <fieldset class="settings-group"><legend class="sr-only">模型选择与探活</legend>
+            <p class="form-hint" data-editor-selected-summary role="status" aria-live="polite"></p>
+            <div class="model-picker" data-editor-picker></div>
+            <details class="channel-editor-details"><summary>手动 / 批量添加模型 ID</summary><label>已选模型（换行或逗号分隔）<textarea name="modelsText" rows="3"></textarea></label></details>
+            <label class="channel-probe-model">探活模型<select name="testModel"></select></label>
+            <p class="form-hint" data-editor-probe-note role="status" aria-live="polite"></p>
+            <p class="form-hint">探活会实际请求此模型并可能产生费用，建议选用合适的小模型。此表单不额外发起探活。</p>
+            <p class="form-status" data-editor-vendor-note role="status"></p>
+          </fieldset>
+        </section>
+        <section id="gateway-panel-groups" data-editor-panel="groups" aria-labelledby="gateway-heading-groups">
+          <h3 id="gateway-heading-groups" tabindex="-1">03 · 名称与分组</h3>
+          <fieldset class="settings-group"><legend class="sr-only">名称与分组</legend><div class="settings-grid">
+            <label>渠道名称<input name="name" maxlength="120" autocomplete="off" required></label>
+            <label>主分组<select name="poolId" required></select></label>
+            <fieldset class="wide"><legend>所属分组（可多选）</legend><div data-editor-pools></div>
+              <div class="model-picker-toolbar"><label>新增分组<input name="newPoolName" maxlength="120" autocomplete="off" placeholder="例如 Kimi、GLM 或自定义名称"></label><div class="model-picker-actions"><button type="button" class="button button-secondary" data-editor-add-pool>新增分组</button></div></div>
+              <p class="form-hint">主分组须属于已选分组，不代表主用渠道；各分组内的渠道顺位在渠道列表调整。新分组随本渠道保存，之后请到 API 密钥中勾选授权。加入或移出分组会改变该分组密钥可访问的渠道。</p></fieldset>
+            <label class="wide gateway-enabled" data-editor-enabled><input type="checkbox" name="enabled">保存时启用此渠道</label>
+          </div></fieldset>
+        </section>
+        <section id="gateway-panel-advanced" data-editor-panel="advanced" aria-label="高级设置">
+          <details class="channel-editor-details" data-editor-advanced><summary id="gateway-heading-advanced" tabindex="-1">04 · 高级设置</summary>
+            <fieldset class="settings-group"><legend class="sr-only">厂商与协议能力</legend>
+              <label>自定义模型厂商（可选）<input name="vendor" pattern="[a-z][a-z0-9_]*" maxlength="80" placeholder="留空自动识别"><span class="form-hint">仅未识别的自定义模型需要填写，例如 openai、anthropic。</span></label>
+              <div class="model-capability-list" data-editor-capabilities role="list" aria-label="已选模型的协议能力（只读）" hidden></div>
+              <p class="form-hint">未改上游接口时，已有模型能力保持不变，新模型继承原渠道能力；新建渠道采用选定接口。</p>
+            </fieldset>
+          </details>
+        </section>
+        <section id="gateway-panel-billing" data-editor-panel="billing" aria-labelledby="gateway-heading-billing"><h3 id="gateway-heading-billing" tabindex="-1">05 · 价格与余额 <small>可选</small></h3><div data-editor-billing></div></section>
+      </div>
+      <footer class="settings-footer gateway-editor-footer"><p data-editor-changes class="form-hint"></p><p data-editor-error class="form-status" role="alert"></p><p data-editor-result class="form-hint" role="status" aria-live="polite" tabindex="-1"></p><div class="dialog-actions"><button type="button" class="button button-secondary" data-editor-close>取消 / 关闭</button><button type="button" class="button button-secondary" data-editor-reconcile hidden>重试生效</button><button type="submit" class="button button-primary" data-editor-save>保存</button></div></footer>
+    </form>
+  </template>
+
+  <dialog id="channel-dialog">
+    <form id="channel-form" class="dialog-shell channel-shell">
+      <div class="dialog-heading">
+        <div><span class="dialog-kicker">NEW CHANNEL</span><h2>添加上游渠道</h2><p>创建后默认停用，请先检测再启用</p></div>
+        <button id="close-channel-dialog" class="icon-button" type="button" aria-label="关闭" title="关闭">×</button>
+      </div>
+      <div class="channel-form-grid">
+        <label>渠道名称<input id="channel-name" maxlength="100" autocomplete="off" placeholder="例如 TokenShop Claude" required></label>
+        <label>原生协议<select id="channel-type" required><option value="14">Anthropic Messages</option><option value="1">OpenAI</option><option value="43">DeepSeek</option><option value="24">Gemini</option><option value="25">Moonshot / Kimi</option><option value="26">Zhipu / GLM</option><option value="48">xAI / Grok</option></select></label>
+        <label class="wide">上游地址<input id="channel-base-url" type="url" inputmode="url" autocomplete="url" placeholder="https://api.example.com" required></label>
+        <label class="wide">API Key<input id="channel-key" type="password" autocomplete="new-password" placeholder="仅本次提交，不会从控制台回显" required></label>
+        <label class="wide">已选模型（可手工补充）<textarea id="channel-models" rows="3" placeholder="模型 ID 用逗号或换行分隔，保留大小写" required></textarea></label>
+        <div id="channel-model-picker" class="wide model-picker"></div>
+        <div class="wide model-fetch-row"><button id="fetch-models-button" class="button button-secondary" type="button">拉取上游模型</button><span id="fetch-models-status" class="form-hint">拉取后仍需确认模型列表</span></div>
+        <label>权重<input id="channel-weight" type="number" min="0" max="100000" step="1" value="10" required></label>
+        <label>优先级<input id="channel-priority" type="number" min="0" max="100000" step="1" value="0" required></label>
+        <label class="wide">真实成本倍率<input id="channel-multiplier" type="number" min="0" max="100" step="0.01" value="0.3" required></label>
+      </div>
+      <p id="channel-form-status" class="form-status"></p>
+      <div class="dialog-note">当前为旧配置服务过渡入口；地址、密钥编辑和删除将在新网关配置接口接入后开放。</div>
+      <div class="dialog-actions"><button id="cancel-channel" class="button button-secondary" type="button">取消</button><button id="save-channel" class="button button-primary" type="submit">创建停用渠道</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="channel-settings-dialog" class="channel-settings-dialog">
+    <div class="dialog-shell channel-settings-shell">
+      <div class="dialog-heading channel-settings-heading">
+        <div><span class="dialog-kicker">CHANNEL SETTINGS</span><h2 id="channel-settings-title">渠道设置</h2><p id="channel-settings-subtitle"></p></div>
+        <button id="close-channel-settings" class="icon-button" type="button" aria-label="关闭渠道设置" title="关闭">×</button>
+      </div>
+      <div class="channel-settings-tabs" role="tablist" aria-label="渠道设置分类">
+        <button id="channel-settings-config-tab" type="button" role="tab" aria-selected="true">配置</button>
+        <button id="channel-settings-wallet-tab" type="button" role="tab" aria-selected="false">上游余额</button>
+      </div>
+      <div id="channel-settings-panel" class="channel-settings-panel"></div>
+      <div id="channel-settings-confirm" class="settings-confirm-layer" role="alertdialog" aria-modal="true" aria-labelledby="settings-confirm-title" hidden>
+        <div class="settings-confirm-card">
+          <span class="dialog-kicker">CONFIRM</span>
+          <h3 id="settings-confirm-title"></h3>
+          <p id="settings-confirm-message"></p>
+          <div class="dialog-actions"><button id="settings-confirm-cancel" class="button button-secondary" type="button">继续编辑</button><button id="settings-confirm-accept" class="button button-danger" type="button">放弃修改</button></div>
+        </div>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="routing-confirm-dialog" class="routing-confirm-dialog">
+    <div class="dialog-shell routing-confirm-shell">
+      <div class="dialog-heading">
+        <div><span class="dialog-kicker">ROUTING WARNING</span><h2>渠道当前正在报错</h2><p id="routing-confirm-message"></p></div>
+        <button id="close-routing-confirm" class="icon-button" type="button" aria-label="关闭" title="关闭">×</button>
+      </div>
+      <div class="dialog-actions"><button id="cancel-routing-confirm" class="button button-secondary" type="button">取消</button><button id="accept-routing-confirm" class="button button-danger" type="button">仍设为主用</button></div>
+    </div>
+  </dialog>
+
+  <template id="channel-settings-config-template">
+    <form id="channel-settings-config-form" class="settings-form" role="tabpanel" aria-labelledby="channel-settings-config-tab">
+      <div class="settings-form-body">
+        <section class="settings-group">
+          <div class="settings-group-heading"><div><h3>模型</h3><p>直接修改 New API 渠道模型，保存后协议分组自动生效</p></div><strong id="settings-model-count"></strong></div>
+          <label>已选模型（可手工补充）<textarea id="settings-models" rows="3" placeholder="模型 ID 用逗号或换行分隔，保留大小写" required></textarea></label>
+          <div id="settings-model-picker" class="model-picker"></div>
+          <div class="model-fetch-row"><button id="settings-fetch-models" class="button button-secondary" type="button">拉取上游</button><span id="settings-fetch-models-status" class="form-hint">拉取结果仅进入草稿，保存后生效</span></div>
+        </section>
+        <section class="settings-group">
+          <div class="settings-group-heading"><div><h3>路由</h3><p>优先级决定故障转移顺序，同优先级按权重分流</p></div></div>
+          <div class="settings-grid">
+            <label>权重<input id="settings-weight" type="number" min="0" max="100000" step="1" required></label>
+            <label>优先级<input id="settings-priority" type="number" min="0" max="100000" step="1" required></label>
+            <label class="wide">检测模型<select id="settings-test-model" required></select></label>
+          </div>
+        </section>
+        <section class="settings-group">
+          <div class="settings-group-heading"><div><h3>成本</h3><p id="settings-cost-note">倍率用于采购真实成本，可保留自动同步并人工校正</p></div></div>
+          <div class="settings-grid settings-cost-grid">
+            <label>成本倍率<input id="settings-multiplier" type="number" min="0" max="100" step="0.001" required></label>
+            <label class="sync-toggle settings-sync-toggle"><input id="settings-cost-sync" type="checkbox"><span class="toggle-track"></span><span>自动同步上游倍率</span></label>
+          </div>
+        </section>
+        <p id="channel-settings-config-status" class="form-status"></p>
+      </div>
+      <div class="dialog-actions settings-footer"><button id="cancel-channel-settings-config" class="button button-secondary" type="button">取消</button><button id="save-channel-settings-config" class="button button-primary" type="submit">保存配置</button></div>
+    </form>
+  </template>
+
+  <template id="channel-settings-cost-template">
+    <form id="channel-settings-cost-form" class="settings-form" role="tabpanel" aria-labelledby="channel-settings-config-tab">
+      <div class="settings-form-body">
+        <section class="settings-group">
+          <h3>采购成本</h3><p class="form-hint">使用已保存渠道同步倍率；未知倍率保持未知。成本设置独立保存。</p>
+          <div class="settings-grid settings-cost-grid">
+            <label>手动成本倍率<input id="settings-multiplier" type="number" min="0" max="100" step="any" inputmode="decimal" required></label>
+            <label class="sync-toggle settings-sync-toggle"><input id="settings-cost-sync" type="checkbox"><span class="toggle-track"></span><span>自动同步上游倍率</span></label>
+          </div>
+        </section>
+        <p id="channel-settings-cost-status" class="form-status" role="status" aria-live="polite"></p>
+      </div>
+      <div class="dialog-actions settings-footer"><button id="cancel-channel-settings-cost" class="button button-secondary" type="button">取消</button><button id="save-channel-settings-cost" class="button button-primary" type="submit">保存成本设置</button></div>
+    </form>
+  </template>
+
+  <template id="channel-settings-wallet-template">
+    <form id="channel-settings-wallet-form" class="settings-form" role="tabpanel" aria-labelledby="channel-settings-wallet-tab">
+      <div class="settings-form-body">
+        <section class="settings-group wallet-current-card">
+          <div><span>当前上游余额</span><strong id="settings-wallet-balance"></strong><small id="settings-wallet-current-note"></small></div>
+        </section>
+        <p id="settings-credential-cleared-note" class="settings-inline-note" hidden>为保护凭据，切换标签后需要重新输入管理凭据。</p>
+        <section class="settings-group">
+          <div class="settings-group-heading"><div><h3>余额来源</h3><p>余额设置独立保存，不会修改模型、路由或成本</p></div></div>
+          <div class="settings-grid">
+            <label class="wide">识别方式<select id="settings-wallet-adapter"></select></label>
+            <label id="settings-wallet-origin-label" class="wide">管理地址<input id="settings-wallet-origin" type="url" inputmode="url" autocomplete="off" placeholder="留空时使用渠道默认管理地址"></label>
+            <label id="settings-wallet-credential-label" class="wide">管理凭据<input id="settings-wallet-credential" type="password" autocomplete="new-password"></label>
+          </div>
+          <p id="settings-wallet-credential-hint" class="form-hint"></p>
+        </section>
+        <p id="channel-settings-wallet-status" class="form-status"></p>
+      </div>
+      <div class="dialog-actions settings-footer settings-wallet-footer"><button id="restore-wallet-auto" class="button button-tertiary" type="button">恢复自动</button><span></span><button id="cancel-channel-settings-wallet" class="button button-secondary" type="button">取消</button><button id="save-channel-settings-wallet" class="button button-primary" type="submit">保存余额设置</button></div>
+    </form>
+  </template>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,1180 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://motai.local/contracts/v1/internal-api.schema.json",
+  "definitions": {
+    "status": {
+      "type": "object",
+      "properties": {
+        "format_version": {
+          "const": 1
+        },
+        "build_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "ready": {
+          "type": "boolean"
+        },
+        "desired_gen": {
+          "anyOf": [
+            {
+              "$ref": "common.schema.json#/definitions/decimal"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "committed_gen": {
+          "anyOf": [
+            {
+              "$ref": "common.schema.json#/definitions/decimal"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "serving_gen": {
+          "anyOf": [
+            {
+              "$ref": "common.schema.json#/definitions/decimal"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "lkg_gen": {
+          "anyOf": [
+            {
+              "$ref": "common.schema.json#/definitions/decimal"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "degraded_reasons": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "not_activated",
+              "configuration_invalid",
+              "storage_unavailable",
+              "completion_queue_full",
+              "completion_write_failed",
+              "completion_lag",
+              "completion_wait_exceeded",
+              "runtime_lease_lost",
+              "in_flight_limit",
+              "draining"
+            ]
+          },
+          "minItems": 0,
+          "maxItems": 10,
+          "uniqueItems": true
+        },
+        "in_flight": {
+          "$ref": "common.schema.json#/definitions/safe_uint"
+        },
+        "completion_pending": {
+          "$ref": "common.schema.json#/definitions/safe_uint"
+        },
+        "probe_completion_quarantined": {
+          "$ref": "common.schema.json#/definitions/safe_uint"
+        },
+        "completion_capacity": {
+          "$ref": "common.schema.json#/definitions/safe_uint"
+        },
+        "latest_seq": {
+          "$ref": "common.schema.json#/definitions/decimal"
+        },
+        "referenced_gens": {
+          "type": "array",
+          "items": {
+            "$ref": "common.schema.json#/definitions/decimal"
+          },
+          "minItems": 0,
+          "maxItems": 10000,
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "format_version",
+        "build_id",
+        "ready",
+        "desired_gen",
+        "committed_gen",
+        "serving_gen",
+        "lkg_gen",
+        "degraded_reasons",
+        "in_flight",
+        "completion_pending",
+        "completion_capacity",
+        "latest_seq",
+        "referenced_gens"
+      ],
+      "additionalProperties": false
+    },
+    "activate_request": {
+      "type": "object",
+      "properties": {
+        "format_version": {
+          "const": 1
+        },
+        "gen": {
+          "$ref": "common.schema.json#/definitions/decimal"
+        },
+        "manifest_sha256": {
+          "$ref": "common.schema.json#/definitions/sha256"
+        },
+        "base_committed_gen": {
+          "anyOf": [
+            {
+              "$ref": "common.schema.json#/definitions/decimal"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "format_version",
+        "gen",
+        "manifest_sha256",
+        "base_committed_gen"
+      ],
+      "additionalProperties": false
+    },
+    "activate_response": {
+      "type": "object",
+      "properties": {
+        "format_version": {
+          "const": 1
+        },
+        "gen": {
+          "$ref": "common.schema.json#/definitions/decimal"
+        },
+        "manifest_sha256": {
+          "$ref": "common.schema.json#/definitions/sha256"
+        },
+        "committed_gen": {
+          "$ref": "common.schema.json#/definitions/decimal"
+        },
+        "serving_gen": {
+          "$ref": "common.schema.json#/definitions/decimal"
+        }
+      },
+      "required": [
+        "format_version",
+        "gen",
+        "manifest_sha256",
+        "committed_gen",
+        "serving_gen"
+      ],
+      "additionalProperties": false
+    },
+    "events_query": {
+      "type": "object",
+      "properties": {
+        "after_seq": {
+          "$ref": "common.schema.json#/definitions/decimal"
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2000
+        }
+      },
+      "required": [
+        "after_seq",
+        "limit"
+      ],
+      "additionalProperties": false
+    },
+    "events_page": {
+      "type": "object",
+      "properties": {
+        "format_version": {
+          "const": 1
+        },
+        "events": {
+          "type": "array",
+          "items": {
+            "$ref": "records.schema.json#/definitions/event"
+          },
+          "minItems": 0,
+          "maxItems": 2000
+        },
+        "next_seq": {
+          "$ref": "common.schema.json#/definitions/decimal"
+        },
+        "latest_seq": {
+          "$ref": "common.schema.json#/definitions/decimal"
+        },
+        "has_more": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "format_version",
+        "events",
+        "next_seq",
+        "latest_seq",
+        "has_more"
+      ],
+      "additionalProperties": false
+    },
+    "attempts_query": {
+      "type": "object",
+      "properties": {
+        "reverse": { "type": "boolean" },
+        "cooldown_only": { "type": "boolean" },
+        "stream": {
+          "type": ["boolean", "null"]
+        },
+        "from": {
+          "$ref": "common.schema.json#/definitions/utc"
+        },
+        "to": {
+          "$ref": "common.schema.json#/definitions/utc"
+        },
+        "channel_id": {
+          "anyOf": [
+            {
+              "$ref": "common.schema.json#/definitions/id"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "pool_id": {
+          "anyOf": [
+            {
+              "$ref": "common.schema.json#/definitions/id"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "model_id": {
+          "anyOf": [
+            {
+              "$ref": "common.schema.json#/definitions/model_id"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "kind": {
+          "anyOf": [
+            {
+              "$ref": "common.schema.json#/definitions/kind"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "outcomes": {
+          "type": "array",
+          "items": {
+            "$ref": "common.schema.json#/definitions/attempt_outcome"
+          },
+          "minItems": 0,
+          "maxItems": 17,
+          "uniqueItems": true
+        },
+        "snapshot_seq": {
+          "anyOf": [
+            {
+              "$ref": "common.schema.json#/definitions/decimal"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "cursor": {
+          "anyOf": [
+            {
+              "$ref": "common.schema.json#/definitions/cursor"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 200
+        }
+      },
+      "required": [
+        "from",
+        "to",
+        "channel_id",
+        "pool_id",
+        "model_id",
+        "kind",
+        "outcomes",
+        "snapshot_seq",
+        "cursor",
+        "limit"
+      ],
+      "additionalProperties": false
+    },
+    "attempts_page": {
+      "type": "object",
+      "properties": {
+        "total": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+        "format_version": {
+          "const": 1
+        },
+        "attempts": {
+          "type": "array",
+          "items": {
+            "$ref": "records.schema.json#/definitions/attempt"
+          },
+          "minItems": 0,
+          "maxItems": 200
+        },
+        "snapshot_seq": {
+          "$ref": "common.schema.json#/definitions/decimal"
+        },
+        "next_cursor": {
+          "anyOf": [
+            {
+              "$ref": "common.schema.json#/definitions/cursor"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "has_more": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "format_version",
+        "attempts",
+        "snapshot_seq",
+        "next_cursor",
+        "has_more"
+      ],
+      "additionalProperties": false
+    },
+    "stats_query": {
+      "type": "object",
+      "properties": {
+        "from": {
+          "$ref": "common.schema.json#/definitions/utc"
+        },
+        "to": {
+          "$ref": "common.schema.json#/definitions/utc"
+        },
+        "channel_id": {
+          "anyOf": [
+            {
+              "$ref": "common.schema.json#/definitions/id"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "pool_id": {
+          "anyOf": [
+            {
+              "$ref": "common.schema.json#/definitions/id"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "model_id": {
+          "anyOf": [
+            {
+              "$ref": "common.schema.json#/definitions/model_id"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "kind": {
+          "anyOf": [
+            {
+              "$ref": "common.schema.json#/definitions/kind"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "outcomes": {
+          "type": "array",
+          "items": {
+            "$ref": "common.schema.json#/definitions/attempt_outcome"
+          },
+          "minItems": 0,
+          "maxItems": 17,
+          "uniqueItems": true
+        },
+        "snapshot_seq": {
+          "anyOf": [
+            {
+              "$ref": "common.schema.json#/definitions/decimal"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "from",
+        "to",
+        "channel_id",
+        "pool_id",
+        "model_id",
+        "kind",
+        "outcomes",
+        "snapshot_seq"
+      ],
+      "additionalProperties": false
+    },
+    "token_totals": {
+      "type": "object",
+      "properties": {
+        "total_input": {
+          "$ref": "common.schema.json#/definitions/safe_uint"
+        },
+        "input_uncached": {
+          "$ref": "common.schema.json#/definitions/safe_uint"
+        },
+        "cache_read": {
+          "$ref": "common.schema.json#/definitions/safe_uint"
+        },
+        "cache_write_5m": {
+          "$ref": "common.schema.json#/definitions/safe_uint"
+        },
+        "cache_write_1h": {
+          "$ref": "common.schema.json#/definitions/safe_uint"
+        },
+        "cache_write_unknown": {
+          "$ref": "common.schema.json#/definitions/safe_uint"
+        },
+        "output_total": {
+          "$ref": "common.schema.json#/definitions/safe_uint"
+        },
+        "reasoning": {
+          "$ref": "common.schema.json#/definitions/safe_uint"
+        }
+      },
+      "required": [
+        "total_input",
+        "input_uncached",
+        "cache_read",
+        "cache_write_5m",
+        "cache_write_1h",
+        "cache_write_unknown",
+        "output_total",
+        "reasoning"
+      ],
+      "additionalProperties": false
+    },
+    "coverage": {
+      "type": "object",
+      "properties": {
+        "attempts": {
+          "$ref": "common.schema.json#/definitions/safe_uint"
+        },
+        "usage_known": {
+          "$ref": "common.schema.json#/definitions/safe_uint"
+        },
+        "usage_partial": {
+          "$ref": "common.schema.json#/definitions/safe_uint"
+        },
+        "usage_unknown": {
+          "$ref": "common.schema.json#/definitions/safe_uint"
+        },
+        "estimated": {
+          "$ref": "common.schema.json#/definitions/safe_uint"
+        }
+      },
+      "required": [
+        "attempts",
+        "usage_known",
+        "usage_partial",
+        "usage_unknown",
+        "estimated"
+      ],
+      "additionalProperties": false
+    },
+    "stats_counts": {
+      "type": "object",
+      "properties": {
+        "requests": {
+          "$ref": "common.schema.json#/definitions/safe_uint"
+        },
+        "attempts": {
+          "$ref": "common.schema.json#/definitions/safe_uint"
+        },
+        "requests_succeeded": {
+          "$ref": "common.schema.json#/definitions/safe_uint"
+        },
+        "probes": {
+          "$ref": "common.schema.json#/definitions/safe_uint"
+        },
+        "probes_succeeded": {
+          "$ref": "common.schema.json#/definitions/safe_uint"
+        }
+      },
+      "required": [
+        "requests",
+        "attempts",
+        "requests_succeeded",
+        "probes",
+        "probes_succeeded"
+      ],
+      "additionalProperties": false
+    },
+    "stats_bucket": {
+      "type": "object",
+      "properties": {
+        "from": {
+          "$ref": "common.schema.json#/definitions/utc"
+        },
+        "to": {
+          "$ref": "common.schema.json#/definitions/utc"
+        },
+        "counts": {
+          "$ref": "internal-api.schema.json#/definitions/stats_counts"
+        },
+        "tokens": {
+          "$ref": "internal-api.schema.json#/definitions/token_totals"
+        },
+        "coverage": {
+          "$ref": "internal-api.schema.json#/definitions/coverage"
+        }
+      },
+      "required": [
+        "from",
+        "to",
+        "counts",
+        "tokens",
+        "coverage"
+      ],
+      "additionalProperties": false
+    },
+    "stats_response": {
+      "type": "object",
+      "properties": {
+        "format_version": {
+          "const": 1
+        },
+        "from": {
+          "$ref": "common.schema.json#/definitions/utc"
+        },
+        "to": {
+          "$ref": "common.schema.json#/definitions/utc"
+        },
+        "snapshot_seq": {
+          "$ref": "common.schema.json#/definitions/decimal"
+        },
+        "counts": {
+          "$ref": "internal-api.schema.json#/definitions/stats_counts"
+        },
+        "tokens": {
+          "$ref": "internal-api.schema.json#/definitions/token_totals"
+        },
+        "coverage": {
+          "$ref": "internal-api.schema.json#/definitions/coverage"
+        },
+        "buckets": {
+          "type": "array",
+          "items": {
+            "$ref": "internal-api.schema.json#/definitions/stats_bucket"
+          },
+          "minItems": 0,
+          "maxItems": 366
+        }
+      },
+      "required": [
+        "format_version",
+        "from",
+        "to",
+        "snapshot_seq",
+        "counts",
+        "tokens",
+        "coverage",
+        "buckets"
+      ],
+      "additionalProperties": false
+    },
+    "models_request": {
+      "type": "object",
+      "properties": {
+        "format_version": {
+          "const": 1
+        }
+      },
+      "required": [
+        "format_version"
+      ],
+      "additionalProperties": false
+    },
+    "model_candidate": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "common.schema.json#/definitions/model_id"
+        },
+        "capabilities": {
+          "type": "array",
+          "items": {
+            "$ref": "common.schema.json#/definitions/protocol"
+          },
+          "minItems": 0,
+          "maxItems": 5,
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "id",
+        "capabilities"
+      ],
+      "additionalProperties": false
+    },
+    "models_response": {
+      "type": "object",
+      "properties": {
+        "format_version": {
+          "const": 1
+        },
+        "models": {
+          "type": "array",
+          "items": {
+            "$ref": "internal-api.schema.json#/definitions/model_candidate"
+          },
+          "minItems": 0,
+          "maxItems": 10000
+        },
+        "observed_at": {
+          "$ref": "common.schema.json#/definitions/utc"
+        }
+      },
+      "required": [
+        "format_version",
+        "models",
+        "observed_at"
+      ],
+      "additionalProperties": false
+    },
+    "preview_request": {
+      "type": "object",
+      "properties": {
+        "format_version": {
+          "const": 1
+        },
+        "adapter": {
+          "enum": ["openai", "anthropic", "deepseek", "xai", "gemini", "moonshot"]
+        },
+        "base_url": {
+          "$ref": "common.schema.json#/definitions/http_url"
+        },
+        "credential": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 16384
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "channel_id": {
+          "anyOf": [
+            {
+              "$ref": "common.schema.json#/definitions/id"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "capabilities": {
+          "type": "array",
+          "items": {
+            "$ref": "common.schema.json#/definitions/protocol"
+          },
+          "minItems": 1,
+          "maxItems": 5,
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "format_version",
+        "base_url",
+        "credential",
+        "channel_id",
+        "capabilities"
+      ],
+      "additionalProperties": false
+    },
+    "probe_request": {
+      "type": "object",
+      "properties": {
+        "format_version": {
+          "const": 1
+        },
+        "source": {
+          "enum": [
+            "manual",
+            "scheduled"
+          ]
+        },
+        "pool_id": { "$ref": "common.schema.json#/definitions/id" },
+        "channel_id": {
+          "$ref": "common.schema.json#/definitions/id"
+        },
+        "model_id": {
+          "$ref": "common.schema.json#/definitions/model_id"
+        },
+        "protocol": {
+          "$ref": "common.schema.json#/definitions/protocol"
+        },
+        "client_run_id": {
+          "$ref": "common.schema.json#/definitions/uuid"
+        }
+      },
+      "required": [
+        "format_version",
+        "source",
+        "channel_id",
+        "model_id",
+        "protocol",
+        "client_run_id"
+      ],
+      "additionalProperties": false
+    },
+    "probe_response": {
+      "type": "object",
+      "properties": {
+        "format_version": {
+          "const": 1
+        },
+        "client_run_id": {
+          "$ref": "common.schema.json#/definitions/uuid"
+        },
+        "request_id": {
+          "anyOf": [
+            {
+              "$ref": "common.schema.json#/definitions/uuid"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "attempt_id": {
+          "anyOf": [
+            {
+              "$ref": "common.schema.json#/definitions/uuid"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "state": {
+          "enum": [
+            "accepted",
+            "running",
+            "completed",
+            "skipped_disabled",
+            "interrupted"
+          ]
+        }
+      },
+      "required": [
+        "format_version",
+        "client_run_id",
+        "request_id",
+        "attempt_id",
+        "state"
+      ],
+      "additionalProperties": false
+    },
+    "channel_health_response": {
+      "type": "object",
+      "properties": {
+        "format_version": { "const": 1 },
+        "gen": { "$ref": "common.schema.json#/definitions/decimal" },
+        "channels": {
+          "type": "array",
+          "maxItems": 100000,
+          "items": {
+            "type": "object",
+            "properties": {
+              "pool_id": { "$ref": "common.schema.json#/definitions/id" },
+              "channel_id": { "$ref": "common.schema.json#/definitions/id" },
+              "credential_version": { "anyOf": [{ "$ref": "common.schema.json#/definitions/decimal" }, { "type": "null" }] },
+              "state": { "enum": ["available", "exhausted", "auth_invalid"] },
+              "state_version": { "$ref": "common.schema.json#/definitions/decimal" },
+              "observed_at": { "anyOf": [{ "$ref": "common.schema.json#/definitions/utc" }, { "type": "null" }] }
+            },
+            "required": ["channel_id", "credential_version", "state", "state_version", "observed_at"],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": ["format_version", "gen", "channels"],
+      "additionalProperties": false
+    },
+    "health_reset_request": {
+      "type": "object",
+      "properties": {
+        "format_version": { "const": 1 },
+        "pool_id": { "$ref": "common.schema.json#/definitions/id" },
+        "operation_id": { "$ref": "common.schema.json#/definitions/uuid" },
+        "expected_gen": { "$ref": "common.schema.json#/definitions/decimal" },
+        "expected_credential_version": { "$ref": "common.schema.json#/definitions/decimal" },
+        "expected_state_version": { "$ref": "common.schema.json#/definitions/decimal" }
+      },
+      "required": ["format_version", "operation_id", "expected_gen", "expected_credential_version", "expected_state_version"],
+      "additionalProperties": false
+    },
+    "health_reset_response": {
+      "type": "object",
+      "properties": {
+        "format_version": { "const": 1 },
+        "pool_id": { "$ref": "common.schema.json#/definitions/id" },
+        "operation_id": { "$ref": "common.schema.json#/definitions/uuid" },
+        "channel_id": { "$ref": "common.schema.json#/definitions/id" },
+        "credential_version": { "$ref": "common.schema.json#/definitions/decimal" },
+        "state": { "const": "available" },
+        "state_version": { "$ref": "common.schema.json#/definitions/decimal" },
+        "changed": { "type": "boolean" }
+      },
+      "required": ["format_version", "operation_id", "channel_id", "credential_version", "state", "state_version", "changed"],
+      "additionalProperties": false
+    },
+    "operation_request": {
+      "type": "object",
+      "properties": {
+        "format_version": {
+          "const": 1
+        },
+        "operation_id": {
+          "$ref": "common.schema.json#/definitions/uuid"
+        }
+      },
+      "required": [
+        "format_version",
+        "operation_id"
+      ],
+      "additionalProperties": false
+    },
+    "affinity_reset_response": {
+      "type": "object",
+      "properties": {
+        "format_version": {
+          "const": 1
+        },
+        "operation_id": {
+          "$ref": "common.schema.json#/definitions/uuid"
+        },
+        "pool_id": {
+          "$ref": "common.schema.json#/definitions/id"
+        },
+        "pool_epoch": {
+          "$ref": "common.schema.json#/definitions/decimal"
+        }
+      },
+      "required": [
+        "format_version",
+        "operation_id",
+        "pool_id",
+        "pool_epoch"
+      ],
+      "additionalProperties": false
+    },
+    "drain_response": {
+      "type": "object",
+      "properties": {
+        "format_version": {
+          "const": 1
+        },
+        "operation_id": {
+          "$ref": "common.schema.json#/definitions/uuid"
+        },
+        "accepting": {
+          "type": "boolean"
+        },
+        "in_flight": {
+          "$ref": "common.schema.json#/definitions/safe_uint"
+        },
+        "completion_pending": {
+          "$ref": "common.schema.json#/definitions/safe_uint"
+        }
+      },
+      "required": [
+        "format_version",
+        "operation_id",
+        "accepting",
+        "in_flight",
+        "completion_pending"
+      ],
+      "additionalProperties": false
+    },
+    "billing_probe_response": {
+      "type": "object",
+      "properties": {
+        "format_version": {
+          "const": 1
+        },
+        "channel_id": {
+          "$ref": "common.schema.json#/definitions/id"
+        },
+        "state": {
+          "enum": [
+            "known",
+            "unknown",
+            "unsupported"
+          ]
+        },
+        "multiplier": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1000000
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "source": {
+          "enum": [
+            "management_api",
+            "unsupported",
+            "unavailable"
+          ]
+        },
+        "observed_at": {
+          "$ref": "common.schema.json#/definitions/utc"
+        },
+        "error_class": {
+          "enum": [
+            "bad_content_type",
+            "channel_proxy_unsupported",
+            "channel_type_unsupported",
+            "dns_error",
+            "endpoint_unsupported",
+            "group_unresolved",
+            "http_4xx",
+            "http_5xx",
+            "invalid_target",
+            "key_unavailable",
+            "network_error",
+            "probe_failed",
+            "probe_rate_limited",
+            "redirect_blocked",
+            "response_read_error",
+            "response_too_large",
+            "schema_invalid",
+            "target_blocked",
+            "timeout",
+            "tls_error",
+            "unauthorized",
+            "value_out_of_band"
+          ]
+        },
+        "daily_costs": {
+          "type": "array",
+          "maxItems": 90,
+          "items": {
+            "type": "object",
+            "properties": {
+              "date": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$" },
+              "actualCost": { "type": "number", "minimum": 0 },
+              "standardCost": { "type": "number", "minimum": 0 },
+              "requests": { "type": "integer", "minimum": 0 }
+            },
+            "required": ["date", "actualCost", "standardCost", "requests"],
+            "additionalProperties": false
+          }
+        },
+        "upstream_group": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[^\\x00-\\x1f\\x7f]+$"
+        }
+      },
+      "required": [
+        "format_version",
+        "channel_id",
+        "state",
+        "multiplier",
+        "source",
+        "observed_at"
+      ],
+      "additionalProperties": false
+    },
+    "wallet_probe_response": {
+      "type": "object",
+      "properties": {
+        "format_version": {
+          "const": 1
+        },
+        "channel_id": {
+          "$ref": "common.schema.json#/definitions/id"
+        },
+        "state": {
+          "enum": [
+            "known",
+            "unknown",
+            "unsupported"
+          ]
+        },
+        "balance": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "currency": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[A-Z]{3}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "source": {
+          "enum": [
+            "account_wallet",
+            "unsupported",
+            "unavailable"
+          ]
+        },
+        "observed_at": {
+          "$ref": "common.schema.json#/definitions/utc"
+        }
+      },
+      "required": [
+        "format_version",
+        "channel_id",
+        "state",
+        "balance",
+        "currency",
+        "source",
+        "observed_at"
+      ],
+      "additionalProperties": false
+    },
+    "error_response": {
+      "type": "object",
+      "properties": {
+        "format_version": {
+          "const": 1
+        },
+        "error": {
+          "type": "object",
+          "properties": {
+            "code": {
+              "enum": [
+                "invalid_contract",
+                "invalid_config",
+                "stale_base_generation",
+                "generation_conflict",
+                "generation_not_found",
+                "activation_failed",
+                "gateway_not_ready",
+                "gateway_log_unavailable",
+                "gateway_draining",
+                "channel_not_found",
+                "channel_state_conflict",
+                "pool_not_found",
+                "permission_denied",
+                "upstream_unavailable",
+                "probe_unavailable",
+                "cursor_invalid",
+                "snapshot_invalid",
+                "operation_conflict",
+                "internal_error"
+              ]
+            },
+            "message": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            },
+            "retryable": {
+              "type": "boolean"
+            },
+            "details": {
+              "type": "object",
+              "properties": {
+                "gen": {
+                  "anyOf": [
+                    {
+                      "$ref": "common.schema.json#/definitions/decimal"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "retry_after_seconds": {
+                  "$ref": "common.schema.json#/definitions/nullable_uint"
+                }
+              },
+              "required": [
+                "gen",
+                "retry_after_seconds"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "code",
+            "message",
+            "retryable",
+            "details"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "format_version",
+        "error"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

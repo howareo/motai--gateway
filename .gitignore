@@ -1,0 +1,15 @@
+data/
+logs/
+node_modules/
+coverage/
+.env
+.env.*
+!.env.example
+*.log
+*.pem
+*.key
+compose/runtime.env
+compose/secrets/*.env
+!compose/secrets/*.env.example
+.migration-tools/
+.migration-private/

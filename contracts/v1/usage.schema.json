@@ -1,0 +1,212 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://motai.local/contracts/v1/usage.schema.json",
+  "definitions": {
+    "count": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "$ref": "common.schema.json#/definitions/nullable_uint"
+        },
+        "availability": {
+          "enum": [
+            "known",
+            "absent",
+            "estimated"
+          ]
+        },
+        "completeness": {
+          "enum": [
+            "final",
+            "partial"
+          ]
+        },
+        "provenance": {
+          "enum": [
+            "provider",
+            "derived",
+            "adapter_estimate",
+            "absent"
+          ]
+        }
+      },
+      "required": [
+        "value",
+        "availability",
+        "completeness",
+        "provenance"
+      ],
+      "additionalProperties": false
+    },
+    "provider_counts": {
+      "type": "object",
+      "properties": {
+        "openai_input_tokens": {
+          "$ref": "common.schema.json#/definitions/safe_uint"
+        },
+        "openai_output_tokens": {
+          "$ref": "common.schema.json#/definitions/safe_uint"
+        },
+        "openai_cached_tokens": {
+          "$ref": "common.schema.json#/definitions/safe_uint"
+        },
+        "openai_reasoning_tokens": {
+          "$ref": "common.schema.json#/definitions/safe_uint"
+        },
+        "anthropic_input_tokens": {
+          "$ref": "common.schema.json#/definitions/safe_uint"
+        },
+        "anthropic_output_tokens": {
+          "$ref": "common.schema.json#/definitions/safe_uint"
+        },
+        "anthropic_cache_read_input_tokens": {
+          "$ref": "common.schema.json#/definitions/safe_uint"
+        },
+        "anthropic_cache_creation_input_tokens": {
+          "$ref": "common.schema.json#/definitions/safe_uint"
+        },
+        "anthropic_cache_creation_5m_tokens": {
+          "$ref": "common.schema.json#/definitions/safe_uint"
+        },
+        "anthropic_cache_creation_1h_tokens": {
+          "$ref": "common.schema.json#/definitions/safe_uint"
+        },
+        "deepseek_prompt_tokens": {
+          "$ref": "common.schema.json#/definitions/safe_uint"
+        },
+        "deepseek_completion_tokens": {
+          "$ref": "common.schema.json#/definitions/safe_uint"
+        },
+        "deepseek_prompt_cache_hit_tokens": {
+          "$ref": "common.schema.json#/definitions/safe_uint"
+        },
+        "deepseek_prompt_cache_miss_tokens": {
+          "$ref": "common.schema.json#/definitions/safe_uint"
+        },
+        "gemini_prompt_token_count": {
+          "$ref": "common.schema.json#/definitions/safe_uint"
+        },
+        "gemini_cached_content_token_count": {
+          "$ref": "common.schema.json#/definitions/safe_uint"
+        },
+        "gemini_candidates_token_count": {
+          "$ref": "common.schema.json#/definitions/safe_uint"
+        },
+        "gemini_thoughts_token_count": {
+          "$ref": "common.schema.json#/definitions/safe_uint"
+        },
+        "gemini_total_token_count": {
+          "$ref": "common.schema.json#/definitions/safe_uint"
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "usage": {
+      "type": "object",
+      "properties": {
+        "format_version": {
+          "const": 1
+        },
+        "normalizer_version": {
+          "const": "1"
+        },
+        "provider": {
+          "enum": [
+            "openai",
+            "anthropic",
+            "deepseek",
+            "gemini",
+            "unknown"
+          ]
+        },
+        "total_input": {
+          "$ref": "usage.schema.json#/definitions/count"
+        },
+        "input_uncached": {
+          "$ref": "usage.schema.json#/definitions/count"
+        },
+        "cache_read": {
+          "$ref": "usage.schema.json#/definitions/count"
+        },
+        "cache_write": {
+          "type": "object",
+          "properties": {
+            "ttl_5m": {
+              "$ref": "usage.schema.json#/definitions/count"
+            },
+            "ttl_1h": {
+              "$ref": "usage.schema.json#/definitions/count"
+            },
+            "ttl_unknown": {
+              "$ref": "usage.schema.json#/definitions/count"
+            }
+          },
+          "required": [
+            "ttl_5m",
+            "ttl_1h",
+            "ttl_unknown"
+          ],
+          "additionalProperties": false
+        },
+        "output_total": {
+          "$ref": "usage.schema.json#/definitions/count"
+        },
+        "reasoning": {
+          "$ref": "usage.schema.json#/definitions/count"
+        },
+        "reasoning_relation": {
+          "enum": [
+            "subset_of_output",
+            "separate",
+            "unknown"
+          ]
+        },
+        "provider_counts": {
+          "$ref": "usage.schema.json#/definitions/provider_counts"
+        },
+        "issues": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "usage_missing",
+              "input_missing",
+              "output_missing",
+              "cache_read_missing",
+              "cache_write_missing",
+              "cache_exceeds_input",
+              "cache_write_breakdown_invalid",
+              "input_breakdown_mismatch",
+              "counter_invalid",
+              "counter_overflow",
+              "reasoning_relation_unknown",
+              "input_relation_unknown",
+              "reasoning_exceeds_output",
+              "provider_semantics_unknown",
+              "usage_partial"
+            ]
+          },
+          "minItems": 0,
+          "maxItems": 15,
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "format_version",
+        "normalizer_version",
+        "provider",
+        "total_input",
+        "input_uncached",
+        "cache_read",
+        "cache_write",
+        "output_total",
+        "reasoning",
+        "reasoning_relation",
+        "provider_counts",
+        "issues"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "$ref": "#/definitions/usage"
+}

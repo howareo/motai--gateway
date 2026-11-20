@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>墨台编辑器原生 DOM 验证</title>
+<link rel="stylesheet" href="../public/styles.css">
+<body>
+  <main style="width:min(390px,100%);padding:12px;box-sizing:border-box">
+    <h1>编辑器 DOM 验证</h1>
+    <p>仅合成模型与内存草稿，不发送上游请求。</p>
+    <form id="harness-form">
+      <div id="picker" class="model-picker"></div>
+      <button type="submit" class="button button-primary">验证提交拦截</button>
+    </form>
+    <p id="result" role="status" aria-live="polite">正在验证</p>
+    <ol id="checks"></ol>
+  </main>
+  <script type="module">
+    import { createEditorDraft, beginDiscovery, finishDiscovery, setSelectedModels } from '../public/channel-editor/state.js';
+    import { mountModelPicker } from '../public/channel-editor/model-picker.js';
+    const checks = [];
+    const assert = (condition, label) => {
+      checks.push({ label, passed: Boolean(condition) });
+      const item = document.createElement('li');
+      item.textContent = `${condition ? '通过' : '失败'}：${label}`;
+      document.querySelector('#checks').append(item);
+      if (!condition) throw new Error(label);
+    };
+    try {
+      let draft = createEditorDraft({ id: 'synthetic', models: ['manual/模型-保留'] });
+      const started = beginDiscovery(draft);
+      draft = finishDiscovery(started.draft, started.token, {
+        models: Array.from({ length: 1000 }, (_, index) => `synthetic/model-${index}`),
+      });
+      const root = document.querySelector('#picker');
+      const picker = mountModelPicker(root, { getDraft: () => draft, setDraft: (next) => { draft = next; } });
+      const search = root.querySelector('input[type="search"]');
+      const filter = root.querySelector('select');
+      const list = root.querySelector('.model-picker-list');
+      const button = (text) => [...root.querySelectorAll('button')].find((node) => node.textContent === text);
+      assert(list.querySelectorAll('input').length === 50, '1000 个模型每页最多 50 行');
+      search.value = 'model-9'; search.dispatchEvent(new Event('input', { bubbles: true }));
+      button('全选筛选结果').click();
+      assert(draft.selected.length === 112, '全选全部 111 个筛选结果，并保留手工 ID');
+      button('下一页').click();
+      assert(list.querySelectorAll('input').length === 50, '原生按钮可进入下一页');
+      button('取消筛选结果').click();
+      assert(draft.selected.join() === 'manual/模型-保留', '取消仅移除当前筛选范围');
+      const enter = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true });
+      search.dispatchEvent(enter);
+      assert(enter.defaultPrevented, '搜索框 Enter 被拦截，不隐式保存');
+      const hostile = '<img src=x onerror=alert(1)>/完整模型-ID';
+      draft = setSelectedModels(draft, [hostile, 'manual/模型-保留']); picker.render();
+      search.value = ''; search.dispatchEvent(new Event('input', { bubbles: true }));
+      filter.value = 'selected'; filter.dispatchEvent(new Event('change', { bubbles: true }));
+      assert(!list.querySelector('img') && [...list.querySelectorAll('.model-picker-id')].some((node) => node.textContent === hostile), '模型 ID 作为完整文本展示');
+      const checkbox = [...list.querySelectorAll('input')].find((node) => node.value === hostile);
+      checkbox.click();
+      assert(!draft.selected.includes(hostile) && document.activeElement === search, '移除已选行后焦点回到搜索框');
+      assert([...root.querySelectorAll('button')].every((node) => node.type === 'button'), '选择与分页按钮不提交表单');
+      assert(document.documentElement.scrollWidth <= document.documentElement.clientWidth, '390px 容器无整页横向溢出');
+      const computed = getComputedStyle(root.querySelector('.model-picker-list'));
+      assert(computed.maxHeight === '280px', '真实生产 CSS 限制模型列表高度');
+      window.__channelEditorHarness = { passed: true, checks };
+      document.querySelector('#result').textContent = `${checks.length} 项通过；本页保留可操作的真实模型选择器。`;
+      document.querySelector('#harness-form').addEventListener('submit', (event) => event.preventDefault());
+    } catch (error) {
+      window.__channelEditorHarness = { passed: false, checks, error: error.message };
+      document.querySelector('#result').textContent = `验证失败：${error.message}`;
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,133 @@
+diff --git a/relay/helper/stream_scanner.go b/relay/helper/stream_scanner.go
+index f88bef5..5d8ac37 100644
+--- a/relay/helper/stream_scanner.go
++++ b/relay/helper/stream_scanner.go
+@@ -282,7 +282,13 @@ func StreamScannerHandler(c *gin.Context, resp *http.Response, info *relaycommon
+ 
+ 		if err := scanner.Err(); err != nil {
+ 			if err != io.EOF {
+-				logger.LogError(c, "scanner error: "+err.Error())
++				// Motai: once the client is gone, cleanup closes the body and the
++				// read error is the expected consequence, not an upstream fault.
++				if c.Request.Context().Err() != nil {
++					logger.LogDebug(c, "scanner stopped after client disconnect: "+err.Error())
++				} else {
++					logger.LogError(c, "scanner error: "+err.Error())
++				}
+ 				info.StreamStatus.SetEndReason(relaycommon.StreamEndReasonScannerErr, err)
+ 			}
+ 		}
+@@ -304,6 +310,9 @@ func StreamScannerHandler(c *gin.Context, resp *http.Response, info *relaycommon
+ 	cleanup()
+ 	if info.StreamStatus.IsNormalEnd() && !info.StreamStatus.HasErrors() {
+ 		logger.LogInfo(c, fmt.Sprintf("stream ended: %s", info.StreamStatus.Summary()))
++	} else if info.StreamStatus.EndReason == relaycommon.StreamEndReasonClientGone && !info.StreamStatus.HasErrors() {
++		// Motai: a client disconnect is the caller's choice; keep [ERR] for real faults.
++		logger.LogWarn(c, fmt.Sprintf("stream ended: %s, received=%d", info.StreamStatus.Summary(), info.ReceivedResponseCount))
+ 	} else {
+ 		logger.LogError(c, fmt.Sprintf("stream ended: %s, received=%d", info.StreamStatus.Summary(), info.ReceivedResponseCount))
+ 	}
+diff --git a/relay/helper/stream_scanner_test.go b/relay/helper/stream_scanner_test.go
+index a211951..aa8511a 100644
+--- a/relay/helper/stream_scanner_test.go
++++ b/relay/helper/stream_scanner_test.go
+@@ -2,6 +2,7 @@ package helper
+ 
+ import (
+ 	"bufio"
++	"bytes"
+ 	"context"
+ 	"fmt"
+ 	"io"
+@@ -13,6 +14,7 @@ import (
+ 	"testing"
+ 	"time"
+ 
++	"github.com/QuantumNous/new-api/common"
+ 	"github.com/QuantumNous/new-api/constant"
+ 	relaycommon "github.com/QuantumNous/new-api/relay/common"
+ 	"github.com/QuantumNous/new-api/setting/operation_setting"
+@@ -571,3 +573,83 @@ func TestStreamScannerHandler_StreamStatus_ReplacesPreInitialized(t *testing.T)
+ 	assert.Equal(t, relaycommon.StreamEndReasonDone, info.StreamStatus.EndReason)
+ 	assert.Equal(t, 0, info.StreamStatus.TotalErrorCount())
+ }
++
++// Motai: a client disconnect closes the upstream body on purpose, so neither the
++// resulting read error nor the stream summary may be logged at [ERR].
++func TestStreamScannerHandler_ClientGoneIsNotLoggedAsError(t *testing.T) {
++	var logs syncBuffer
++	common.LogWriterMu.Lock()
++	previousOut, previousErr := gin.DefaultWriter, gin.DefaultErrorWriter
++	gin.DefaultWriter, gin.DefaultErrorWriter = &logs, &logs
++	common.LogWriterMu.Unlock()
++	t.Cleanup(func() {
++		common.LogWriterMu.Lock()
++		gin.DefaultWriter, gin.DefaultErrorWriter = previousOut, previousErr
++		common.LogWriterMu.Unlock()
++	})
++
++	ctx, cancel := context.WithCancel(context.Background())
++	defer cancel()
++	pr, pw := io.Pipe()
++	t.Cleanup(func() {
++		_ = pr.Close()
++		_ = pw.Close()
++	})
++	recorder := httptest.NewRecorder()
++	c, _ := gin.CreateTestContext(recorder)
++	c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil).WithContext(ctx)
++	c.Set(common.RequestIdKey, "motai-client-gone-log")
++	info := &relaycommon.RelayInfo{DisablePing: true, ChannelMeta: &relaycommon.ChannelMeta{}}
++
++	firstHandled := make(chan struct{})
++	done := make(chan struct{})
++	go func() {
++		StreamScannerHandler(c, &http.Response{Body: pr}, info, func(data string, sr *StreamResult) {
++			if data == "first" {
++				close(firstHandled)
++			}
++		})
++		close(done)
++	}()
++	_, err := fmt.Fprint(pw, "data: first\n")
++	require.NoError(t, err)
++	select {
++	case <-firstHandled:
++	case <-time.After(2 * time.Second):
++		t.Fatal("timed out waiting for first chunk")
++	}
++	cancel()
++	select {
++	case <-done:
++	case <-time.After(2 * time.Second):
++		t.Fatal("handler did not return after client disconnect")
++	}
++
++	var own []string
++	for _, line := range strings.Split(logs.String(), "\n") {
++		if strings.Contains(line, "motai-client-gone-log") {
++			own = append(own, line)
++		}
++	}
++	joined := strings.Join(own, "\n")
++	assert.NotContains(t, joined, "[ERR]")
++	assert.Contains(t, joined, "[WARN]")
++	assert.Contains(t, joined, "reason=client_gone")
++}
++
++type syncBuffer struct {
++	mu  sync.Mutex
++	buf bytes.Buffer
++}
++
++func (b *syncBuffer) Write(p []byte) (int, error) {
++	b.mu.Lock()
++	defer b.mu.Unlock()
++	return b.buf.Write(p)
++}
++
++func (b *syncBuffer) String() string {
++	b.mu.Lock()
++	defer b.mu.Unlock()
++	return b.buf.String()
++}

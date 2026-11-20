@@ -1,0 +1,107 @@
+{
+  "format_version": 1,
+  "source_id": "synthetic-newapi-01",
+  "snapshot_at": "2026-10-27T00:00:00Z",
+  "evidence": {
+    "complete": true,
+    "snapshot_consistent": true,
+    "feature_inventory_complete": true,
+    "permissions_complete": true,
+    "capabilities_complete": true,
+    "group_resolution_complete": true,
+    "features": [],
+    "affinity": {
+      "enabled": true,
+      "ttl_seconds": 3600,
+      "model_isolated": true,
+      "coverage": "all_channels",
+      "fallback": "session_or_caller"
+    },
+    "failure_policy": {
+      "max_attempts": 1,
+      "ordinary_failure_threshold": 3,
+      "ordinary_failure_window_seconds": 300,
+      "cooldown_seconds": 60,
+      "retry_after_max_seconds": 3600
+    }
+  },
+  "source": {
+    "channels": [{
+      "id": "007",
+      "name": "Synthetic upstream",
+      "status": 1,
+      "base_url": "https://upstream.invalid/v1",
+      "priority": 27,
+      "weight": 0,
+      "key": "SYNTHETIC_NOT_A_REAL_UPSTREAM_KEY",
+      "groups": ["private"],
+      "models": [{
+        "model_id": "Model/Case-Sensitive",
+        "upstream_model": "Provider/Model",
+        "vendor": "openai",
+        "capabilities": ["responses", "chat_completions"]
+      }],
+      "features": []
+    }],
+    "users": [{
+      "id": "1",
+      "status": 1,
+      "group": "private",
+      "quota_enforced": false,
+      "quota_balance": "500000",
+      "features": []
+    }],
+    "callers": [{
+      "id": "1004",
+      "name": "Synthetic caller",
+      "user_id": "1",
+      "status": 1,
+      "key": "SYNTHETIC_CALLER_DATABASE_KEY",
+      "wire_token": "sk-SYNTHETIC_CALLER_DATABASE_KEY",
+      "expired_time": -1,
+      "unlimited_quota": true,
+      "remain_quota": 0,
+      "model_limits_enabled": false,
+      "model_limits": "",
+      "allow_ips": "127.0.0.1\n10.10.0.0/16",
+      "group": "",
+      "cross_group_retry": false,
+      "auto_groups": [],
+      "effective_groups": ["private"],
+      "features": []
+    }]
+  },
+  "plan": {
+    "gen": "1",
+    "pools": [{ "id": "pool-main", "name": "Main", "group": "private" }],
+    "channels": [{
+      "source_id": "007",
+      "pool_id": "pool-main",
+      "enabled": true,
+      "credential_ref": "upstream-main",
+      "credential_version": "1",
+      "account_ref": null
+    }],
+    "callers": [{
+      "source_id": "1004",
+      "id": "caller-main",
+      "enabled": true,
+      "permissions": [{
+        "pool_id": "pool-main",
+        "model_ids": ["Model/Case-Sensitive"],
+        "channel_ids": ["007"],
+        "protocols": ["responses", "chat_completions"],
+        "groups": []
+      }]
+    }],
+    "affinity": { "enabled": true, "ttl_seconds": 3600, "scope_version": 1 },
+    "failure_policy": {
+      "max_attempts": 1,
+      "ordinary_failure_threshold": 3,
+      "ordinary_failure_window_seconds": 300,
+      "cooldown_seconds": 60,
+      "retry_after_max_seconds": 3600
+    },
+    "accept_changes": []
+  }
+}
