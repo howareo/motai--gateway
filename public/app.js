@@ -408,9 +408,11 @@ function routeMetrics(channel) {
   }
   if (state.gatewayMode === 'gateway') {
     const label = channel.position === 1 ? '主用' : `第${channel.position}`;
-    const role = document.createElement('span');
-    role.className = `route-role route-role-${channel.routeRole}`;
-    role.textContent = channel.enabled ? label : `已禁用 · ${label}`;
+    const control = document.createElement('div');
+    control.className = `route-position-control route-role-${channel.routeRole}`;
+    const dot = document.createElement('i');
+    dot.className = 'route-position-dot';
+    dot.setAttribute('aria-hidden', 'true');
     const select = document.createElement('select');
     select.className = 'route-position';
     select.setAttribute('aria-label', `${channel.name}在${channel.routingPool}分组的顺位`);
@@ -426,13 +428,20 @@ function routeMetrics(channel) {
       try { await setChannelPosition(channel, channel.poolId, Number(select.value)); }
       finally { select.value = String(channel.position); }
     });
+    control.append(dot, select);
+    if (!channel.enabled) {
+      const disabledTag = document.createElement('span');
+      disabledTag.className = 'route-disabled-tag';
+      disabledTag.textContent = `已禁用 · ${label}`;
+      control.append(disabledTag);
+    }
     const summary = document.createElement('span');
     summary.className = 'route-config';
     summary.textContent = `${channel.routingPool} 分组 · 共 ${channel.poolSize} 个渠道`;
     const isClaude = [channel.poolId, channel.routingPool].some((value) => String(value).toLowerCase() === 'claude');
     summary.title = isClaude ? 'Claude 只使用配置主用，失败直接返回错误；其余顺位仅供手动切换'
       : '按配置顺位，结合模型支持与健康状态选择渠道；停用渠道不参与请求';
-    wrapper.append(role, select, summary);
+    wrapper.append(control, summary);
     return wrapper;
   }
   const stateLine = document.createElement('div');
@@ -511,7 +520,7 @@ function channelQuality(channel) {
   } else {
     const percentage = channel.probeSuccessRate * 100;
     rate.textContent = `${decimal.format(percentage)}%`;
-    rate.classList.add(percentage >= 99 ? 'availability-good' : percentage >= 95 ? 'availability-warning' : 'availability-bad');
+    rate.classList.add(percentage >= 98 ? 'availability-good' : percentage >= 85 ? 'availability-warning' : 'availability-bad');
   }
   heading.append(latency, rate);
 
@@ -596,6 +605,8 @@ async function openChannelHealthSettings() {
   }
   window.location.hash = '#settings';
   routeFromHash();
+  const runtimeTab = $('#settings-runtime-tab');
+  if (runtimeTab && typeof selectSettingsPageTab === 'function') selectSettingsPageTab(runtimeTab);
   syncChannelHealthSettingsForm({ force: true });
   $('#channel-health-settings-status').textContent = '';
   $('#channel-health-interval').focus();
@@ -1197,8 +1208,14 @@ function channelActions(channel) {
   toggle.addEventListener('click', () => setChannelStatus(channel, toggle));
   actions.append(edit, toggle);
   if (state.gatewayMode === 'gateway') {
-    const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'text-button danger'; remove.textContent = '删除';
-    remove.addEventListener('click', () => gatewayChannelAction('delete', channel, remove)); actions.append(remove);
+    const more = document.createElement('details');
+    more.className = 'channel-more';
+    const summary = document.createElement('summary');
+    summary.textContent = '···';
+    summary.title = '更多操作';
+    summary.setAttribute('aria-label', `${channel.name} 更多操作`);
+    const menu = document.createElement('div');
+    menu.className = 'channel-more-menu';
     for (const role of channel.poolRoles || []) {
       const health = channel.runtimeHealthByPool?.find((item) => item.poolId === role.poolId);
       const pending = state.gatewayHealthPending.has(JSON.stringify([channel.id, role.poolId]));
@@ -1206,7 +1223,8 @@ function channelActions(channel) {
       probe.textContent = `检测 ${role.routingPool}`;
       // A re-render while a probe is running (periodic refresh) must keep the busy state, not offer a second click.
       if (state.gatewayProbing.has(JSON.stringify([channel.id, role.poolId]))) { probe.disabled = true; probe.textContent = '检测中…'; }
-      probe.addEventListener('click', () => probeGatewayChannel(channel, role.poolId, probe)); actions.append(probe);
+      probe.addEventListener('click', () => { more.open = false; probeGatewayChannel(channel, role.poolId, probe); });
+      menu.append(probe);
       if (!['exhausted', 'auth_invalid'].includes(health?.state) && !pending) continue;
       const reason = document.createElement('span'); reason.className = 'muted';
       reason.textContent = `${role.routingPool} · ${pending ? '恢复结果待核对'
@@ -1216,6 +1234,11 @@ function channelActions(channel) {
       reset.disabled = state.gatewayHealthStale && !pending;
       reset.addEventListener('click', () => resetGatewayHealth(channel, reset, role.poolId)); actions.append(reason, reset);
     }
+    const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'text-button danger'; remove.textContent = '删除渠道';
+    remove.addEventListener('click', () => { more.open = false; gatewayChannelAction('delete', channel, remove); });
+    menu.append(remove);
+    more.append(summary, menu);
+    actions.append(more);
   }
   return actions;
 }
@@ -1777,6 +1800,7 @@ function renderRequests() {
     applyChannelColor(row, log.channelId, log.providerFamily);
     const cost = cell(costNode(log), 'estimate request-cost');
     if (log.kind === 'success') {
+      applyMoneySplit(cost);
       const source = log.priceSource ? `；价格来源：${log.priceSource}` : '';
       cost.title = log.costStatus === 'partial'
         ? `部分 Token 类别缺少价格或 usage，当前显示可确认的成本${source}`
@@ -1844,8 +1868,20 @@ function requestDetailButton(log) {
   const button = document.createElement('button');
   button.type = 'button';
   button.className = 'request-detail-button';
-  button.textContent = formatTime(log.createdAt);
-  button.setAttribute('aria-label', `查看请求详情：${formatTime(log.createdAt)} ${log.model || ''}`.trim());
+  const formatted = formatTime(log.createdAt);
+  const parts = formatted.split(' ');
+  if (parts.length === 2) {
+    const clock = document.createElement('span');
+    clock.className = 'time-clock';
+    clock.textContent = parts[1];
+    const date = document.createElement('span');
+    date.className = 'time-date';
+    date.textContent = parts[0];
+    button.append(clock, date);
+  } else {
+    button.textContent = formatted;
+  }
+  button.setAttribute('aria-label', `查看请求详情：${formatted} ${log.model || ''}`.trim());
   button.addEventListener('click', () => openRequestDetail(log, button));
   return button;
 }
@@ -2036,6 +2072,7 @@ function renderSettingsPage() {
 }
 
 function renderPage(name) {
+  if (typeof syncPeriodContext === 'function') syncPeriodContext(name);
   if (!state.overview) return;
   state.pageDirty[name] = false;
   if (name === 'overview') {
@@ -2090,6 +2127,8 @@ function render() {
   const legacy = data.source?.legacy;
   const legacyNote = legacy ? ` · 含旧 New API 历史 ${formatTime(legacy.mergedFrom)} ~ ${formatTime(legacy.mergedTo)}${legacy.complete ? '' : '（导入中）'}` : '';
   elements.detail.textContent = `${periodLabel(data)} · 更新于 ${formatTime(data.generatedAt)}${legacyNote}`;
+  const contextTime = $('#period-context-time');
+  if (contextTime) contextTime.textContent = `更新于 ${formatTime(data.generatedAt)}`;
   for (const name of pageNames) state.pageDirty[name] = true;
   state.renderedPeriodKey = state.periodKey;
   renderPage(state.page || 'overview');
@@ -3162,21 +3201,44 @@ function motionReduced() {
   return Boolean(reducedMotionQuery?.matches) || document.documentElement.dataset.motion === 'reduce';
 }
 
+// 金融级双阶小数排版：保留 2 位主显金额，第 3 位起降阶弱化；不改变 textContent 原值。
+function applyMoneySplit(element) {
+  if (!element || element.classList?.contains('is-unpriced')) return;
+  if (element.querySelector?.('.unpriced-tag')) return;
+  const text = element.textContent || '';
+  const match = /^(.*?\.\d{2})(\d+)$/.exec(text);
+  if (!match || typeof document?.createElement !== 'function') return;
+  const frac = document.createElement('span');
+  frac.className = 'money-frac';
+  frac.textContent = match[2];
+  element.replaceChildren(match[1], frac);
+}
+
 // 只在文本真的变化时滚动（约 600ms，ease-out）；轮询数据不变不重播。
 function rollNumber(element) {
   const finalText = element.textContent;
-  if (element.dataset.rolled === finalText) return;
+  const isMoneyMetric = element.id === 'metric-cost';
+  if (element.dataset.rolled === finalText) {
+    if (isMoneyMetric) applyMoneySplit(element);
+    return;
+  }
   const previousText = element.dataset.rolled;
   element.dataset.rolled = finalText;
   if (element._rollFrame) window.cancelAnimationFrame(element._rollFrame);
   const match = /-?\d[\d,]*(?:\.(\d+))?/.exec(finalText);
-  if (motionReduced() || document.hidden || !match || finalText.includes('/')) return;
+  if (motionReduced() || document.hidden || !match || finalText.includes('/')) {
+    if (isMoneyMetric) applyMoneySplit(element);
+    return;
+  }
   const target = Number(match[0].replace(/,/g, ''));
   const decimals = match[1]?.length || 0;
   const grouped = match[0].includes(',');
   const before = previousText && /-?\d[\d,]*(?:\.\d+)?/.exec(previousText);
   const start = before ? Number(before[0].replace(/,/g, '')) : 0;
-  if (!Number.isFinite(target) || start === target) return;
+  if (!Number.isFinite(target) || start === target) {
+    if (isMoneyMetric) applyMoneySplit(element);
+    return;
+  }
   const prefix = finalText.slice(0, match.index);
   const suffix = finalText.slice(match.index + match[0].length);
   const began = performance.now();
@@ -3186,7 +3248,10 @@ function rollNumber(element) {
     const shown = value.toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals, useGrouping: grouped });
     element.textContent = `${prefix}${shown}${suffix}`;
     element._rollFrame = progress < 1 ? window.requestAnimationFrame(step) : 0;
-    if (progress >= 1) element.textContent = finalText;
+    if (progress >= 1) {
+      element.textContent = finalText;
+      if (isMoneyMetric) applyMoneySplit(element);
+    }
   };
   element._rollFrame = window.requestAnimationFrame(step);
 }
@@ -3202,17 +3267,10 @@ function updateGauge() {
   gauge.setAttribute('aria-label', `缓存命中率 ${formatCacheRate(rate)}`);
 }
 
-// 指标卡 3D 倾斜（≤6°）：仅精细指针且未减少动态时启用，只写 transform 相关变量。
+// 指标卡克制悬停态：遵循减少动态开关，不再做夸张的 3D 倾斜与白光斑。
 function tiltCard(event) {
   const card = event.target.closest?.('.metric');
   if (!card || event.pointerType !== 'mouse' || motionReduced()) return;
-  const box = card.getBoundingClientRect();
-  const px = (event.clientX - box.left) / box.width - 0.5;
-  const py = (event.clientY - box.top) / box.height - 0.5;
-  card.style.setProperty('--tilt-x', `${(-py * 12).toFixed(2)}deg`);
-  card.style.setProperty('--tilt-y', `${(px * 12).toFixed(2)}deg`);
-  card.style.setProperty('--glow-x', `${((px + 0.5) * box.width - 80).toFixed(0)}px`);
-  card.style.setProperty('--glow-y', `${((py + 0.5) * box.height - 80).toFixed(0)}px`);
   card.classList.add('is-tilted');
 }
 
@@ -3220,8 +3278,6 @@ function untiltCards(event) {
   const card = event.target.closest?.('.metric');
   if (!card) return;
   card.classList.remove('is-tilted');
-  card.style.setProperty('--tilt-x', '0deg');
-  card.style.setProperty('--tilt-y', '0deg');
 }
 
 // ---- 请求页筛选：手机底部抽屉 + 已生效筛选标签 ----
@@ -3232,6 +3288,7 @@ const filterControls = [
 function renderActiveFilters() {
   const holder = $('#active-filters');
   const count = $('#request-filter-count');
+  const reset = $('#request-filter-reset');
   if (!holder) return;
   holder.replaceChildren();
   let active = 0;
@@ -3251,6 +3308,28 @@ function renderActiveFilters() {
   }
   count.hidden = active === 0;
   count.textContent = String(active);
+  if (reset) reset.hidden = active === 0;
+}
+
+$('#request-filter-reset')?.addEventListener('click', () => {
+  for (const [select] of filterControls) select.value = '';
+  state.requestPage = 1;
+  renderActiveFilters();
+  window.scrollTo({ top: 0, behavior: motionReduced() ? 'instant' : 'smooth' });
+  loadRequests({ quiet: false });
+});
+
+document.addEventListener('click', (event) => {
+  const clickedMore = event.target.closest?.('.channel-more');
+  for (const menu of document.querySelectorAll('.channel-more[open]')) {
+    if (menu !== clickedMore) menu.open = false;
+  }
+});
+
+const periodContextTitles = { overview: '系统概览', channels: '上游渠道', requests: '请求日志', settings: '系统设置' };
+function syncPeriodContext(name) {
+  const label = $('#period-context-label');
+  if (label) label.textContent = periodContextTitles[name] || '系统概览';
 }
 
 function setFilterSheet(open) {
@@ -3266,15 +3345,20 @@ $('#request-filter-toggle').addEventListener('click', () => setFilterSheet(!$('#
 $('#request-filter-done').addEventListener('click', () => setFilterSheet(false));
 $('#filter-backdrop').addEventListener('click', () => setFilterSheet(false));
 document.addEventListener('keydown', (event) => {
-  if (event.key === 'Escape' && $('#request-filters').classList.contains('is-open')) setFilterSheet(false);
+  if (event.key !== 'Escape') return;
+  if ($('#request-filters').classList.contains('is-open')) setFilterSheet(false);
+  for (const menu of document.querySelectorAll('.channel-more[open]')) menu.open = false;
 });
 for (const [select] of filterControls) select.addEventListener('change', renderActiveFilters);
 
-// 渲染完一页之后的统一后处理：数字滚动、仪表、筛选标签、星图。
+// 渲染完一页之后的统一后处理：数字滚动、金额双阶小数、仪表、筛选标签、星图。
 function afterRender(name) {
   document.body.dataset.loaded = 'true';
+  syncPeriodContext(name);
   if (name === 'overview') {
     for (const element of document.querySelectorAll('.metric strong')) rollNumber(element);
+    applyMoneySplit(elements.modelTotal);
+    for (const amount of document.querySelectorAll('.model-amount')) applyMoneySplit(amount);
     updateGauge();
     updateStarMap();
   } else if (name === 'requests') {

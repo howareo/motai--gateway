@@ -272,8 +272,8 @@ button:disabled { cursor: not-allowed; }
 .cost-summary .sync-pending, .cost-summary .sync-stale { color: var(--warning); }
 .cost-summary .sync-error, .cost-summary .sync-identity_changed { color: var(--danger); }
 .channel-model-price { min-width: 0; font-size: 12px; line-height: 17px; }
-.channel-model-price select, .channel-price-model { display: block; width: 100%; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
-.channel-model-price select { height: 27px; padding: 2px 4px; }
+.channel-price-model { display: block; width: 100%; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
+.channel-model-price select { max-width: 100%; font-size: 12px; }
 .channel-model-price small { display: block; margin: 3px 0; color: var(--faint); font-size: 11px; }
 .channel-price-rates { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 3px 8px; }
 .channel-price-rates span, .channel-price-rates b { display: block; }
@@ -835,10 +835,10 @@ body[data-page="settings"] .period-bar { display: none; }
   .pricing-table td:nth-child(7) { grid-area: channel; color: var(--muted); font-size: 13px; }
   .pricing-table td:nth-child(8) { grid-area: source; color: var(--faint); font-size: 13px; }
   .pricing-table td:nth-child(n + 3):nth-child(-n + 6)::before { display: block; margin-bottom: 2px; color: var(--faint); font: 12px/16px var(--ui-font); }
-  .pricing-table td:nth-child(3)::before { content: "输入 $/M"; }
-  .pricing-table td:nth-child(4)::before { content: "输出 $/M"; }
-  .pricing-table td:nth-child(5)::before { content: "缓存读 $/M"; }
-  .pricing-table td:nth-child(6)::before { content: "缓存写 $/M"; }
+  .pricing-table td:nth-child(3)::before { content: "输入 ¥/M"; }
+  .pricing-table td:nth-child(4)::before { content: "输出 ¥/M"; }
+  .pricing-table td:nth-child(5)::before { content: "缓存读 ¥/M"; }
+  .pricing-table td:nth-child(6)::before { content: "缓存写 ¥/M"; }
   .pricing-table td:nth-child(7)::before { content: "渠道："; color: var(--faint); }
 }
 
@@ -1126,3 +1126,279 @@ html { scroll-padding-top: calc(var(--topbar-h, 56px) + var(--period-h, 0px)); }
 .channel-price-rates b.is-none, .pricing-table td.is-none, .request-summary.is-loading { color: var(--faint); }
 .pricing-table td:nth-child(n + 3):nth-child(-n + 6).is-none { color: var(--faint); }
 .wallet-summary strong.is-neutral, .wallet-current-card strong.is-neutral { color: var(--ink); }
+
+/* ================= 墨台 UI 审美精修（2026-11-22）：器物感、克制材质、排版与中宽屏修缮 ================= */
+:root {
+  --panel-bg: linear-gradient(170deg, rgba(33, 37, 44, .82), rgba(22, 25, 31, .90));
+  --panel-edge: linear-gradient(180deg, rgba(255, 255, 255, .10), rgba(255, 255, 255, .03) 40%, rgba(255, 255, 255, .015));
+  --panel-shadow: 0 1px 0 rgba(255, 255, 255, .03) inset, 0 10px 28px rgba(0, 0, 0, .28), 0 1px 3px rgba(0, 0, 0, .20);
+  --radius-panel: 12px;
+  --radius-card: 8px;
+  --radius-control: 6px;
+}
+
+/* 沉静端溪砚底布：减弱极光饱和度，把色彩预算留给数据 */
+body::before {
+  background:
+    radial-gradient(1000px 560px at 14% -10%, rgba(127, 209, 185, .075), transparent 62%),
+    radial-gradient(860px 520px at 90% 6%, rgba(141, 150, 232, .055), transparent 64%),
+    linear-gradient(rgba(255, 255, 255, .016) 1px, transparent 1px) 0 0 / 48px 48px,
+    linear-gradient(90deg, rgba(255, 255, 255, .016) 1px, transparent 1px) 0 0 / 48px 48px,
+    var(--canvas);
+}
+
+/* 阅读容器：保留 calc(100% - 24px) 契约，在宽屏建立建筑感边界与呼吸感 */
+.content-wrap { max-width: 1480px; padding: 18px 8px 56px; }
+@media (max-width: 719px) { .content-wrap { padding-left: 0; padding-right: 0; } }
+
+/* 统一三档圆角体系：12px 大容器 / 8px 子卡工具条 / 6px 控件 */
+.panel, .table-frame, .starmap-panel, .metric-matrix, dialog { border-radius: var(--radius-panel); }
+.upstream-alert, .period-control, .settings-card, .caller-list, .settings-group { border-radius: var(--radius-card); }
+.button, .icon-command, select, input, textarea, .distribution-control, .reasoning-badge { border-radius: var(--radius-control); }
+.panel, .table-frame, .starmap-panel, .metric-matrix, .settings-card { border-color: rgba(255, 255, 255, .085); }
+
+/* 顶栏精修：去掉孤立双绿点，把温和呼吸感融入在线状态灯 */
+.topbar { border-bottom-color: rgba(255, 255, 255, .08); background: rgba(21, 23, 27, .84); }
+.connection-state.online::before { box-shadow: 0 0 0 3px rgba(138, 216, 138, .16); animation: breathe 2.8s ease-in-out infinite; }
+.heartbeat { width: 0; height: 0; margin-left: -8px; opacity: 0; pointer-events: none; overflow: hidden; animation: none; }
+#refresh-button:disabled ~ .heartbeat { width: 7px; height: 7px; margin-left: 0; opacity: .9; background: var(--warning); animation: heartbeat .8s ease-in-out infinite; }
+
+/* 周期工具栏：左侧上下文与右侧周期胶囊平衡呼应 */
+.period-bar { align-items: center; justify-content: space-between; gap: 12px; margin-top: 2px; }
+.period-context { min-width: 0; display: flex; align-items: baseline; gap: 10px; }
+.period-context-label { color: var(--ink); font-size: 14px; font-weight: 650; letter-spacing: .01em; white-space: nowrap; }
+.period-context-time { overflow: hidden; color: var(--faint); font: 12px/18px var(--mono-font); text-overflow: ellipsis; white-space: nowrap; }
+@media (min-width: 1100px) { .period-context-time { display: none; } }
+.period-control { overflow: hidden; border-color: rgba(255, 255, 255, .09); background: rgba(28, 31, 36, .75); }
+.period-control button { min-height: 31px; padding: 0 11px; border-right-color: rgba(255, 255, 255, .06); font-size: 12.5px; transition: background-color .16s ease, color .16s ease; }
+.period-control button.active { background: rgba(127, 209, 185, .14); color: var(--accent-hover); font-weight: 650; }
+@media (max-width: 760px) {
+  .period-bar { flex-direction: column; align-items: stretch; gap: 8px; }
+  .period-context { justify-content: space-between; }
+}
+
+/* 全局精修 select：统一克制尺寸与边界，修复 .channel-model-price select 因 display:block 导致的箭头折行 */
+select {
+  min-height: 32px;
+  padding: 4px 10px;
+  border-color: rgba(255, 255, 255, .12);
+  background-color: var(--surface-2);
+  font-size: 13px;
+  line-height: 1.35;
+  transition: border-color .16s ease, background-color .16s ease;
+}
+select:hover:not(:disabled) { border-color: rgba(255, 255, 255, .22); background-color: var(--surface-3); }
+.settings-group select, .channel-form-grid select { min-height: 38px; padding: 7px 10px; font-size: 14px; }
+.channel-model-price select { max-width: 100%; min-height: 29px; padding: 3px 8px; font-size: 12px; line-height: 1.3; }
+
+/* 金额双阶小数排版（金融终端级细节） */
+.money-frac { font-size: .72em; font-weight: 500; opacity: .48; letter-spacing: -.01em; }
+
+/* 概览页：路由星图紧凑高度 + 克制标题 */
+.starmap-head { padding: 10px 16px; border-bottom-color: rgba(255, 255, 255, .07); }
+.starmap-stage { height: 276px; background: radial-gradient(56% 85% at 50% 50%, rgba(127, 209, 185, .065), transparent 72%); }
+@media (max-width: 719px) { .starmap-stage { height: 230px; } }
+
+/* 概览页：KPI 矩阵去掉 3D 倾斜/白光斑/顶部激光线，收敛彩虹色，允许副标题优雅双行不截断 */
+.metric-matrix::before { display: none; }
+.metric-matrix { perspective: none; }
+.metric {
+  min-height: 92px;
+  padding: 13px 18px;
+  border-color: rgba(255, 255, 255, .065);
+  transform: none !important;
+  transform-style: flat;
+  transition: background-color .18s ease;
+}
+.metric::after { display: none; }
+.metric:hover, .metric.is-tilted { background: rgba(255, 255, 255, .032); }
+.metric > span { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--muted); }
+.metric strong { margin-top: 4px; font-size: 23px; line-height: 28px; letter-spacing: -.015em; }
+@media (min-width: 1100px) { .metric strong { font-size: 26px; line-height: 31px; } }
+.metric small {
+  margin-top: 5px;
+  font-size: 12px;
+  line-height: 16px;
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+/* 收敛缓存读/写大数字颜色为暖白，用精致色点标示语义 */
+.metric-cache-read strong, .metric-cache-write strong { color: var(--ink); }
+.metric-cache-read > span::before, .metric-cache-write > span::before { width: 6px; height: 6px; border-radius: 50%; content: ""; }
+.metric-cache-read > span::before { background: var(--cache-read); }
+.metric-cache-write > span::before { background: var(--cache-write); }
+
+/* 概览页：上游错误横幅降噪 */
+.upstream-alert {
+  padding: 11px 16px;
+  border-color: rgba(240, 138, 132, .28);
+  border-left: 3px solid var(--danger);
+  background: rgba(240, 138, 132, .065);
+}
+.upstream-alert .button { min-height: 32px; padding: 0 12px; border-color: rgba(240, 138, 132, .42); background: rgba(240, 138, 132, .08); font-size: 13px; }
+.upstream-alert .button:hover { border-color: var(--danger); background: rgba(240, 138, 132, .16); color: var(--ink); }
+
+/* 概览页：底部双栏面板节奏与格式塔对齐 */
+.panel-heading { padding: 10px 16px; border-bottom-color: rgba(255, 255, 255, .07); flex-wrap: wrap; row-gap: 6px; }
+.panel-heading > div:first-child { flex-wrap: wrap; gap: 2px 10px; }
+.panel:hover { border-color: rgba(127, 209, 185, .26); box-shadow: var(--panel-shadow); }
+.model-list { gap: 13px; padding: 14px 16px; align-content: start; }
+.model-track { height: 6px; border-radius: 999px; background: rgba(255, 255, 255, .065); }
+.model-track::after { border-radius: 999px; }
+@media (max-width: 1100px) {
+  .model-row { gap: 5px 10px; }
+  .model-values { align-items: baseline; gap: 10px; }
+  .model-meta { font-size: 12px; color: var(--faint); }
+}
+.trend-summary {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px 12px;
+  padding: 11px 16px 6px;
+  border-bottom: 1px solid rgba(255, 255, 255, .05);
+}
+.trend-stat span { font-size: 11.5px; }
+.trend-stat strong { font-size: 13px; }
+.trend-chart { min-height: 162px; padding: 10px 14px 8px; }
+.trend-grid { stroke: rgba(255, 255, 255, .07); stroke-dasharray: 2 4; }
+#trend-channel { min-height: 29px; padding: 2px 8px; font-size: 12.5px; }
+
+/* 渠道页：顺位胶囊合一 + 更多菜单 + 中屏横排模型标签 */
+.route-position-control { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; }
+.route-position-control.route-role-primary::before { display: none; content: none; }
+.route-position-dot { width: 7px; height: 7px; flex: 0 0 auto; border-radius: 50%; background: var(--faint); }
+.route-position-control.route-role-primary .route-position-dot { background: var(--healthy); box-shadow: 0 0 6px rgba(138, 216, 138, .65); animation: breathe 2.6s ease-in-out infinite; }
+.route-position-control.route-role-fallback .route-position-dot { background: var(--warning); }
+.route-position-control .route-position { width: auto; min-width: 78px; max-width: 130px; min-height: 28px; height: 28px; padding: 2px 8px; font-size: 12.5px; font-weight: 600; }
+.route-position-control.route-role-primary .route-position { border-color: rgba(138, 216, 138, .35); color: var(--healthy); }
+.route-position-control.route-role-fallback .route-position { border-color: rgba(242, 193, 102, .32); color: var(--warning); }
+.route-disabled-tag { color: var(--faint); font-size: 12px; white-space: nowrap; }
+
+.channel-more { position: relative; }
+.channel-more > summary {
+  list-style: none;
+  min-width: 30px;
+  min-height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 7px;
+  border: 1px solid rgba(255, 255, 255, .10);
+  border-radius: var(--radius-control);
+  background: var(--surface-2);
+  color: var(--muted);
+  font-size: 14px;
+  letter-spacing: 1px;
+  cursor: pointer;
+}
+.channel-more > summary::-webkit-details-marker { display: none; }
+.channel-more > summary:hover { border-color: var(--line-strong); background: var(--surface-3); color: var(--ink); }
+.channel-more-menu {
+  position: absolute;
+  top: calc(100% + 5px);
+  right: 0;
+  z-index: 25;
+  min-width: 126px;
+  display: grid;
+  gap: 2px;
+  padding: 5px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-card);
+  background: var(--surface-2);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, .48);
+}
+.channel-more-menu .text-button { width: 100%; min-height: 32px; justify-content: flex-start; text-align: left; font-size: 13px; padding: 4px 9px; }
+
+/* 宽屏渠道表：收紧操作列为单行紧凑布局（设置 + 停用 + ···），不再竖排叠罗汉 */
+@media (min-width: 1100px) {
+  .channel-table col:nth-child(1) { width: 15%; }
+  .channel-table col:nth-child(2) { width: 14%; }
+  .channel-table col:nth-child(3) { width: 11%; }
+  .channel-table col:nth-child(4) { width: 9%; }
+  .channel-table col:nth-child(5) { width: 15%; }
+  .channel-table col:nth-child(6) { width: 11%; }
+  .channel-table col:nth-child(7) { width: 14%; }
+  .channel-table col:nth-child(8) { width: 11%; }
+  .channel-table .quality-cell .availability-heading strong,
+  .channel-table .quality-cell .availability-rate { font-size: 12.5px; }
+  .channel-table .row-actions { flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 3px; }
+  .channel-table .row-actions > .text-button { padding: 3px 6px; font-size: 13px; }
+}
+
+/* 中屏渠道卡片：模型横向流式排布，三段式结构对齐，卡片不再冗长错位 */
+@media (max-width: 1099px) {
+  .channel-cards tbody { gap: 14px; padding: 14px; align-items: stretch; }
+  .channel-cards tr.channel-row {
+    align-content: start;
+    grid-template-rows: auto auto auto auto auto 1fr auto;
+    gap: 10px 12px;
+    padding: 14px 14px 12px 16px;
+    border: 1px solid rgba(255, 255, 255, .09);
+    border-radius: var(--radius-panel);
+    background: rgba(255, 255, 255, .024);
+    transition: border-color .16s ease, background-color .16s ease;
+  }
+  .channel-cards tr.channel-row:hover { border-color: rgba(255, 255, 255, .16); background: rgba(255, 255, 255, .038); }
+  .channel-cards .channel-models > div { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 5px; }
+  .channel-cards .channel-price { padding-top: 10px; border-top-color: rgba(255, 255, 255, .06); }
+  .channel-cards .channel-quality { padding-top: 10px; border-top-color: rgba(255, 255, 255, .06); align-self: end; }
+  .channel-cards .channel-actions { padding-top: 10px; border-top-color: rgba(255, 255, 255, .06); }
+  .channel-cards .channel-more-menu { right: auto; left: 0; }
+}
+
+/* 请求页：双层清晰工具栏 + 零重叠零裁切 7 列比例 + 两行时间 + 缺失占位 — */
+.requests-heading { flex-wrap: wrap; align-items: center; gap: 10px 16px; padding-bottom: 10px; }
+.requests-heading > div:first-child { flex: 1 1 320px; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }
+.requests-heading h2 { white-space: nowrap; }
+.requests-heading .request-subtitle { font-size: 12.5px; }
+.request-tools { flex: 1 1 auto; justify-content: flex-end; gap: 6px; }
+.request-tools .filters { gap: 6px; }
+.request-tools .filters select { min-height: 32px; height: 32px; padding: 3px 9px; font-size: 12.5px; }
+.filter-reset { min-height: 32px; padding: 0 10px; font-size: 12.5px; color: var(--accent); white-space: nowrap; }
+.filter-reset:hover { background: rgba(127, 209, 185, .12); color: var(--accent-hover); }
+.filter-reset[hidden] { display: none; }
+
+.request-table col:nth-child(1) { width: 10%; }
+.request-table col:nth-child(2) { width: 17%; }
+.request-table col:nth-child(3) { width: 16%; }
+.request-table col:nth-child(4) { width: 8%; }
+.request-table col:nth-child(5) { width: 21%; }
+.request-table col:nth-child(6) { width: 11%; }
+.request-table col:nth-child(7) { width: 17%; }
+
+.request-table td { padding: 8px 9px; }
+.request-table .time-cell { overflow: hidden; }
+.request-table .request-time { display: flex; align-items: center; gap: 6px; }
+.request-table .request-time .pulse-dot { flex: 0 0 auto; margin-right: 0; }
+.request-detail-button { min-width: 0; display: inline-flex; flex-direction: column; align-items: flex-start; gap: 1px; line-height: 1.25; }
+.time-clock { color: var(--ink); font: 500 13px/17px var(--mono-font); font-variant-numeric: tabular-nums; }
+.time-date { color: var(--faint); font: 11.5px/15px var(--mono-font); font-variant-numeric: tabular-nums; }
+.request-table .request-reasoning { text-align: center; }
+.request-table .token-grid { gap: 2px 8px; }
+.request-table .token-grid span { font-size: 12px; }
+.request-table .token-grid b { font-size: 13px; line-height: 18px; }
+.request-table .latency-cell span { font-size: 12px; line-height: 17px; gap: 4px; }
+.request-table .latency-cell b { font-size: 12.5px; line-height: 17px; font-variant-numeric: tabular-nums; }
+.latency-cell b:empty::after { content: "—"; color: var(--faint); font-weight: 400; }
+
+@media (max-width: 760px) {
+  .request-table .request-time { justify-content: flex-end; }
+  .request-detail-button { flex-direction: row; align-items: baseline; gap: 6px; }
+  .request-table .request-reasoning { text-align: right; }
+}
+
+/* 设置页：三子标签清爽切换 + 运行设置卡片等高齐底 */
+.settings-page-tabs { gap: 6px; border-bottom-color: rgba(255, 255, 255, .08); }
+.settings-page-tabs button { transition: color .16s ease, border-color .16s ease; }
+.settings-page-tabs button:hover { color: var(--ink); }
+.pricing-tab-section { margin-top: 6px; }
+.settings-column { gap: 14px; align-items: stretch; }
+.settings-card { display: flex; flex-direction: column; padding: 18px 20px; }
+.settings-card .form-hint { margin: 4px 0 12px; line-height: 1.55; }
+.settings-card .dialog-actions { margin-top: auto; padding-top: 12px; }
+.pricing-table th:nth-child(n + 3):nth-child(-n + 6),
+.pricing-table td:nth-child(n + 3):nth-child(-n + 6) { text-align: right; }
+.pricing-table th:nth-child(7),
+.pricing-table td:nth-child(7) { padding-left: 18px; }

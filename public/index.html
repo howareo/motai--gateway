@@ -34,6 +34,10 @@
     <div id="gateway-config-status" class="dialog-note" role="status" hidden><span id="gateway-config-status-text"></span> <button id="gateway-config-reconcile" type="button" class="button button-secondary">重试生效</button> <button id="gateway-config-discard" type="button" class="button button-secondary" hidden>放弃被拒绝的配置</button></div>
     <i class="sticky-sentinel" data-sticky-sentinel="period" aria-hidden="true"></i>
     <div class="period-bar" role="group" aria-label="统计周期">
+      <div class="period-context">
+        <span id="period-context-label" class="period-context-label">系统概览</span>
+        <small id="period-context-time" class="period-context-time"></small>
+      </div>
       <div class="period-control">
         <button type="button" data-period="today" class="active">今天</button>
         <button type="button" data-period="yesterday">昨天</button>
@@ -48,7 +52,7 @@
     <div id="page-overview" class="page" data-page-panel="overview">
     <section id="starmap" class="starmap-panel section-block" aria-label="路由星图">
       <div class="starmap-head">
-        <div><h2>路由星图</h2><span>网关核心 → 厂商池 → 渠道；卫星大小为请求量，绿色粒子为成本占比</span></div>
+        <div><h2>路由星图</h2><span title="网关核心 → 厂商池 → 渠道；卫星大小为请求量，绿色粒子为成本占比">实时路由拓扑 · 卫星规模对应请求量，粒子流速对应成本占比</span></div>
         <ul class="starmap-legend" aria-label="图例">
           <li class="legend-healthy">健康</li><li class="legend-failing">失败</li><li class="legend-unknown">未知</li><li class="legend-disabled">停用</li>
         </ul>
@@ -60,7 +64,7 @@
       </div>
       <p id="starmap-summary" class="sr-only"></p>
     </section>
-    <section class="metric-matrix" aria-label="关键指标">
+    <section class="metric-matrix section-block" aria-label="关键指标">
       <article class="metric"><span>可用渠道</span><strong id="metric-channels"></strong><small id="metric-channel-note"></small></article>
       <article class="metric"><span>请求数</span><strong id="metric-requests"></strong><small id="metric-request-note"></small></article>
       <article class="metric"><span>Token 总量</span><strong id="metric-tokens"></strong><small id="metric-token-note"></small></article>
@@ -79,7 +83,7 @@
         <strong id="upstream-alert-title"></strong>
         <small id="upstream-alert-detail"></small>
       </div>
-      <button id="view-upstream-errors" class="button button-secondary" type="button">查看失败请求</button>
+      <button id="view-upstream-errors" class="button button-secondary" type="button">查看失败请求 →</button>
     </section>
 
     <section class="analytics-grid section-block">
@@ -144,6 +148,7 @@
             <select id="status-filter" aria-label="筛选结果"><option value="">全部结果</option><option value="success">仅成功</option><option value="error">仅失败</option></select>
             <select id="stream-filter" aria-label="筛选流式"><option value="">全部请求</option><option value="stream">仅流式</option><option value="nonstream">仅非流式</option><option value="failover">仅自动切换</option></select>
           </div>
+          <button id="request-filter-reset" class="button button-tertiary filter-reset" type="button" hidden>重置筛选</button>
           <button id="request-refresh-button" class="icon-command compact-command" type="button" title="刷新最近请求" aria-label="刷新最近请求">↻</button>
         </div>
       </div>
@@ -172,13 +177,29 @@
 
     <div id="page-settings" class="page" data-page-panel="settings" hidden>
     <section id="settings" class="section-block data-section settings-page">
-      <div class="section-heading"><div><h2>设置</h2><span>API 密钥、分组授权与网关运行偏好</span></div></div>
+      <div class="section-heading"><div><h2>设置</h2><span>API 密钥、模型价格与网关运行偏好</span></div></div>
       <div class="settings-page-tabs" role="tablist" aria-label="设置分类">
         <button id="settings-keys-tab" type="button" role="tab" aria-selected="true" aria-controls="settings-api-keys" data-settings-panel="settings-api-keys">API 密钥</button>
+        <button id="settings-pricing-tab" type="button" role="tab" aria-selected="false" aria-controls="settings-pricing" tabindex="-1" data-settings-panel="settings-pricing">模型价格</button>
         <button id="settings-runtime-tab" type="button" role="tab" aria-selected="false" aria-controls="settings-runtime" tabindex="-1" data-settings-panel="settings-runtime">运行设置</button>
       </div>
       <div id="settings-api-keys" role="tabpanel" aria-labelledby="settings-keys-tab">
         <div id="settings-callers-slot" class="settings-callers-slot"><p id="settings-callers-note" class="form-hint" hidden>API 密钥及分组授权仅在网关模式下可用。</p></div>
+      </div>
+      <div id="settings-pricing" role="tabpanel" aria-labelledby="settings-pricing-tab" hidden>
+        <section id="model-prices" class="data-section pricing-tab-section">
+          <div class="section-heading">
+            <div><h2>模型价格</h2><span id="pricing-page-summary"></span></div>
+            <div class="section-actions"><button id="refresh-pricing-sync" class="button button-secondary" type="button">立即同步</button></div>
+          </div>
+          <div class="table-frame">
+            <table class="data-table pricing-table">
+              <thead><tr><th>模型</th><th>协议</th><th>输入 ¥/M</th><th>输出 ¥/M</th><th>缓存读 ¥/M</th><th>缓存写 ¥/M</th><th>渠道</th><th>价格来源</th></tr></thead>
+              <tbody id="pricing-sync-body"></tbody>
+            </table>
+            <div id="pricing-sync-empty" class="empty-state" hidden>尚无模型价格记录</div>
+          </div>
+        </section>
       </div>
       <div id="settings-runtime" role="tabpanel" aria-labelledby="settings-runtime-tab" hidden>
         <div class="settings-column">
@@ -207,19 +228,6 @@
             <p class="form-hint">仅对当前页面会话生效，刷新后恢复；系统“减少动态”偏好始终优先。</p>
           </div>
         </div>
-      </div>
-    </section>
-    <section id="model-prices" class="section-block data-section">
-      <div class="section-heading">
-        <div><h2>模型价格</h2><span id="pricing-page-summary"></span></div>
-        <div class="section-actions"><button id="refresh-pricing-sync" class="button button-secondary" type="button">立即同步</button></div>
-      </div>
-      <div class="table-frame">
-        <table class="data-table pricing-table">
-          <thead><tr><th>模型</th><th>协议</th><th>输入 $/M</th><th>输出 $/M</th><th>缓存读 $/M</th><th>缓存写 $/M</th><th>渠道</th><th>价格来源</th></tr></thead>
-          <tbody id="pricing-sync-body"></tbody>
-        </table>
-        <div id="pricing-sync-empty" class="empty-state" hidden>尚无模型价格记录</div>
       </div>
     </section>
     </div>

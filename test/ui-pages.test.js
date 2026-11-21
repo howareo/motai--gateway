@@ -144,12 +144,16 @@ test('navigation has exactly four items and no pricing page exists', () => {
   assert.match(app, /const pageNames = \['overview', 'channels', 'requests', 'settings'\];/);
 });
 
-test('the settings page holds the settings cards and the 模型价格 table, both full width', () => {
+test('the settings page separates API keys, model prices and runtime settings into tabs', () => {
   const page = html.slice(html.indexOf('id="page-settings"'), html.indexOf('</main>'));
   assert.match(page, /<h2>设置<\/h2>/);
   assert.match(page, /<h2>模型价格<\/h2>/);
-  assert.ok(page.indexOf('<h2>设置</h2>') < page.indexOf('<h2>模型价格</h2>'), '设置在上，模型价格在下');
-  assert.match(page, /class="settings-columns"/);
+  for (const panel of ['settings-api-keys', 'settings-pricing', 'settings-runtime']) {
+    assert.match(page, new RegExp(`aria-controls="${panel}"`));
+    assert.match(page, new RegExp(`id="${panel}" role="tabpanel"`));
+  }
+  const pricingPanel = page.slice(page.indexOf('id="settings-pricing"'), page.indexOf('id="settings-runtime"'));
+  assert.match(pricingPanel, /id="model-prices"/);
   assert.match(page, /id="settings-callers-slot"/);
   assert.match(app.slice(app.indexOf('function renderSettingsPage('), app.indexOf('function renderPage(')), /renderPricingSync\(\)/);
 });
@@ -157,7 +161,7 @@ test('the settings page holds the settings cards and the 模型价格 table, bot
 test('model price table markup is a single table with the old column headers and no dropdowns, pillars or dialog', () => {
   const page = html.slice(html.indexOf('id="page-settings"'), html.indexOf('</main>'));
   const headers = [...page.matchAll(/<th>([^<]*)<\/th>/g)].map((m) => m[1]);
-  assert.deepEqual(headers, ['模型', '协议', '输入 $/M', '输出 $/M', '缓存读 $/M', '缓存写 $/M', '渠道', '价格来源']);
+  assert.deepEqual(headers, ['模型', '协议', '输入 ¥/M', '输出 ¥/M', '缓存读 ¥/M', '缓存写 ¥/M', '渠道', '价格来源']);
   assert.match(page, /id="pricing-sync-body"/);
   assert.match(page, /id="pricing-page-summary"/);
   assert.doesNotMatch(html, /pricing-channel|pricing-model|pricing-pillars|pricing-detail|pricing-sync-dialog|全部模型价格表/);

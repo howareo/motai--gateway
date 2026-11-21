@@ -6,7 +6,9 @@ import { editorDOM } from './helpers/editor-dom.js';
 
 test('settings categories switch by click and keyboard without resetting form values', async () => {
   const html = readFileSync(new URL('../public/index.html', import.meta.url), 'utf8');
-  const markup = html.slice(html.indexOf('<section id="settings"'), html.indexOf('<section id="model-prices"'));
+  const startIdx = html.indexOf('<section id="settings"');
+  const endIdx = html.indexOf('</main>', startIdx);
+  const markup = html.slice(startIdx, endIdx);
   const { document, template } = editorDOM(`<template id="gateway-channel-template">${markup}</template>`);
   const root = template.content;
   document.querySelectorAll = (selector) => root.querySelectorAll(selector);
@@ -17,13 +19,20 @@ test('settings categories switch by click and keyboard without resetting form va
   assert.ok(start >= 0 && end > start);
   runInNewContext(source.slice(start, end), { document });
   const keys = document.getElementById('settings-keys-tab');
+  const pricing = document.getElementById('settings-pricing-tab');
   const runtime = document.getElementById('settings-runtime-tab');
   const interval = document.getElementById('channel-health-interval');
   interval.value = '17';
+  assert.equal(document.getElementById('settings-pricing').hidden, true);
   assert.equal(document.getElementById('settings-runtime').hidden, true);
+  await pricing.dispatch('click');
+  assert.equal(pricing.getAttribute('aria-selected'), 'true');
+  assert.equal(document.getElementById('settings-pricing').hidden, false);
+  assert.equal(document.getElementById('settings-api-keys').hidden, true);
   await runtime.dispatch('click');
   assert.equal(runtime.getAttribute('aria-selected'), 'true');
   assert.equal(document.getElementById('settings-api-keys').hidden, true);
+  assert.equal(document.getElementById('settings-pricing').hidden, true);
   assert.equal(document.getElementById('settings-runtime').hidden, false);
   await runtime.dispatch('keydown', { key: 'ArrowRight' });
   assert.equal(document.activeElement, keys);
