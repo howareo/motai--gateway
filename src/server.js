@@ -1229,14 +1229,28 @@ export function createApp({
     });
   }
 
-  // The committed token HMACs stay inside the server; responses only ever carry the keyStored boolean derived from them.
+  // The committed token HMACs stay inside the server; responses only carry keyStored and a masked preview (never the full key).
   const callerHashes = (callerId) => gatewayControl.publisher?.callerTokenHashes?.(callerId) ?? [];
   async function withKeyStored(config) {
     if (!config?.callers) return config;
-    const stored = await (activeCallerKeyVault?.available
-      ? activeCallerKeyVault.storedCallerIds(new Map(config.callers.map((caller) => [caller.id, callerHashes(caller.id)])))
-      : new Set());
-    return { ...config, callers: config.callers.map((caller) => ({ ...caller, keyStored: stored.has(caller.id) })) };
+    const hashesByCaller = new Map(config.callers.map((caller) => [caller.id, callerHashes(caller.id)]));
+    let masks = new Map();
+    if (activeCallerKeyVault?.available) {
+      if (typeof activeCallerKeyVault.storedCallerMasks === 'function') {
+        masks = await activeCallerKeyVault.storedCallerMasks(hashesByCaller);
+      } else {
+        const stored = await activeCallerKeyVault.storedCallerIds(hashesByCaller);
+        masks = new Map([...stored].map((id) => [id, null]));
+      }
+    }
+    return {
+      ...config,
+      callers: config.callers.map((caller) => ({
+        ...caller,
+        keyStored: masks.has(caller.id),
+        keyMasked: masks.get(caller.id) ?? null,
+      })),
+    };
   }
   const withKeyStoredResult = async (result) => (result?.config ? { ...result, config: await withKeyStored(result.config) } : result);
 

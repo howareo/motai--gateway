@@ -11,9 +11,19 @@ export function openGatewayEditor({ dialog, template, config, channel, api, onSa
   let initial = true;
   let previousSaveStatus;
   let latestConfig, createdChannelId, previousSelected, previousDiscovered, previousTestModel, previousProtocol, previousVendor;
+  const setActiveNav = (value) => {
+    for (const button of dialog.querySelectorAll('[data-editor-jump]')) {
+      const active = button.dataset.editorJump === value;
+      button.classList?.toggle('is-active', active);
+      if (active) button.setAttribute('aria-current', 'true');
+      else button.removeAttribute?.('aria-current');
+    }
+  };
   const showSection = (value, focus = true) => {
-    const panel = $('[data-editor-panel="' + value + '"]') || $('[data-editor-panel="basic"]');
-    if (value === 'advanced') $('[data-editor-advanced]').open = true;
+    const target = $('[data-editor-panel="' + value + '"]') ? value : 'basic';
+    const panel = $('[data-editor-panel="' + target + '"]');
+    setActiveNav(target);
+    if (target === 'advanced') $('[data-editor-advanced]').open = true;
     const body = $('.gateway-editor-body');
     body.scrollTop = Math.max(0, body.scrollTop + panel.getBoundingClientRect().top - body.getBoundingClientRect().top - 12);
     if (focus) (panel.querySelector('h3') || panel.querySelector('summary'))?.focus({ preventScroll: true });
@@ -82,7 +92,13 @@ export function openGatewayEditor({ dialog, template, config, channel, api, onSa
     $('[data-editor-fetch-status]').textContent = draft.discoveryStatus === 'loading' ? `正在拉取 ${draft.baseUrl}`
       : draft.discoveryError || (draft.observedAt ? `目录 ${draft.discovered.length} 个 · ${draft.observedAt}` : session.discoveryBlock || '填写连接后拉取目录，勾选并保存后生效');
     $('[data-editor-confirm-key]').hidden = draft.credentialAction !== 'keep' || draft.credentialConfirmed;
-    $('[data-editor-key-mode]').textContent = draft.credentialAction === 'clear' ? '保存时清除凭据' : draft.credentialAction === 'replace' ? '保存时替换凭据' : channel?.hasCredential ? '已配置，留空沿用' : '尚未配置凭据';
+    $('[data-editor-key-mode]').textContent = !channel
+      ? (draft.credentialValue ? '已填写临时凭据，保存后生效（不回显）' : '请填写上游 API Key（仅本次提交，保存后不回显）')
+      : draft.credentialAction === 'clear' ? '保存时清除凭据'
+      : draft.credentialAction === 'replace' ? '保存时替换凭据'
+      : channel?.hasCredential ? '已配置，留空沿用' : '尚未配置凭据';
+    const keyNote = $('[data-editor-key-note]');
+    if (keyNote) keyNote.hidden = !channel;
     renderPools(draft);
     if (!initial) {
       if (document.activeElement !== $('[name="modelsText"]')) $('[name="modelsText"]').value = draft.selected.join(', ');

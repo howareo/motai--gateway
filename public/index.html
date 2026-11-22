@@ -266,7 +266,7 @@
             <label>上游接口<select name="protocol"><option value="responses">Responses</option><option value="chat_completions">Chat Completions</option><option value="messages">Messages</option><option value="gemini_generate_content">Gemini Generate Content</option><option value="count_tokens">Count Tokens</option></select><span class="form-hint">上游实际支持的请求接口，与模型名称和分组无关。</span></label>
             <label>路径 / 格式适配器<select name="adapter"><option value="">按入口协议（默认）</option><option value="openai">OpenAI 兼容</option><option value="anthropic">Anthropic / Claude</option><option value="deepseek">DeepSeek</option><option value="xai">xAI</option><option value="moonshot">Kimi / Moonshot</option><option value="gemini">Gemini 原生</option></select><span class="form-hint">决定路径和格式转换，不代表选择了哪个接口；GLM 等兼容中转可选 OpenAI 兼容。</span></label>
           </div><p class="form-hint" data-editor-protocol-note></p>
-          <div class="model-fetch-row"><button type="button" class="button button-primary" data-editor-fetch>拉取模型目录</button><span class="form-hint" data-editor-fetch-status role="status" aria-live="polite"></span></div>
+          <div class="model-fetch-row"><button type="button" class="button button-secondary button-accent-outline" data-editor-fetch>拉取模型目录</button><span class="form-hint" data-editor-fetch-status role="status" aria-live="polite"></span></div>
           <p class="form-hint">只读取模型目录，不调用模型生成；无需先保存渠道。</p></fieldset>
         </section>
         <section id="gateway-panel-models" data-editor-panel="models" aria-labelledby="gateway-heading-models">

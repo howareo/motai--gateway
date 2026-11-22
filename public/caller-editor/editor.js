@@ -24,7 +24,7 @@ export function mountCallerManager({ root, getConfig, api, onSaved, notify = () 
   const count = make('span', '', 'form-hint'); count.setAttribute('role', 'status');
   const toolbar = make('div', '', 'caller-toolbar'); toolbar.append(search, groupFilter, count);
   const columns = make('div', '', 'caller-list-columns'); columns.setAttribute('aria-hidden', 'true');
-  for (const label of ['名称 / 状态', '可用分组', '有效期', '操作']) columns.append(make('span', label));
+  for (const label of ['名称 / 状态', 'API 密钥', '可用分组', '有效期', '操作']) columns.append(make('span', label));
   root.append(heading, toolbar, status, columns, list, dialog);
   search.addEventListener('input', renderList); groupFilter.addEventListener('change', renderList);
   let filterOptions = '';
@@ -55,7 +55,22 @@ export function mountCallerManager({ root, getConfig, api, onSaved, notify = () 
       const expired = caller.expiresAt && Date.parse(caller.expiresAt) <= Date.now();
       const enabled = caller.enabled && caller.subjectEnabled && !expired;
       const badge = make('span', expired ? '已到期' : enabled ? '已启用' : '已停用', `caller-status ${enabled ? 'is-enabled' : ''}`);
-      identity.append(make('strong', caller.name), badge, make('small', caller.keyStored ? '密钥已保存' : '旧密钥待导入', 'form-hint'));
+      identity.append(make('strong', caller.name), badge);
+      const keyCell = make('div', '', 'caller-key-cell');
+      keyCell.append(make('span', 'API 密钥', 'caller-mobile-label'));
+      if (caller.keyStored === true) {
+        const keyCode = make('code', caller.keyMasked || 'sk-••••...••••', 'caller-key-code');
+        keyCode.title = '已加密保存，点击右侧图标复制完整密钥';
+        const quickCopy = button('', () => copyStoredKey(caller, quickCopy), 'caller-key-copy');
+        quickCopy.title = '复制完整密钥';
+        quickCopy.setAttribute('aria-label', `复制 ${caller.name} 的完整 API 密钥`);
+        const icon = make('span', '', 'caller-key-copy-icon');
+        icon.setAttribute('aria-hidden', 'true');
+        quickCopy.append(icon);
+        keyCell.append(keyCode, quickCopy);
+      } else {
+        keyCell.append(make('span', '旧密钥待导入', 'caller-key-missing'));
+      }
       const groupButton = button('', () => openEditor(caller, groupButton, undefined, true), 'caller-group-button');
       groupButton.setAttribute('aria-label', `${caller.name}：更改可用分组`);
       for (const group of groups) groupButton.append(make('span', group, 'caller-group-chip'));
@@ -71,7 +86,7 @@ export function mountCallerManager({ root, getConfig, api, onSaved, notify = () 
       const more = make('details', '', 'caller-more'), moreTitle = make('summary', '更多');
       const menu = make('div', '', 'caller-more-menu'); menu.append(toggle, rotate); more.append(moreTitle, menu);
       const actions = make('div', '', 'caller-actions');
-      row.append(identity, groupButton, expiry, actions);
+      row.append(identity, keyCell, groupButton, expiry, actions);
       if (caller.keyStored === true) {
         const copyKey = button('复制密钥', () => copyStoredKey(caller, copyKey));
         actions.append(copyKey, edit, more);

@@ -1800,7 +1800,6 @@ function renderRequests() {
     applyChannelColor(row, log.channelId, log.providerFamily);
     const cost = cell(costNode(log), 'estimate request-cost');
     if (log.kind === 'success') {
-      applyMoneySplit(cost);
       const source = log.priceSource ? `；价格来源：${log.priceSource}` : '';
       cost.title = log.costStatus === 'partial'
         ? `部分 Token 类别缺少价格或 usage，当前显示可确认的成本${source}`
@@ -1922,12 +1921,34 @@ function requestDetailFields(log) {
 function openRequestDetail(log, trigger = null) {
   const list = $('#request-detail-fields');
   list.replaceChildren();
-  for (const [label, value, tier] of requestDetailFields(log)) {
+  const isError = log.kind === 'error';
+  const rawFields = requestDetailFields(log);
+  // 失败请求把“错误摘要”与“总耗时”提到紧跟“结果”之后，免得被连续“未知”字段挤到视口底部。
+  const ordered = isError
+    ? [
+        ...rawFields.filter(([label]) => ['时间', '结果', '错误摘要', '总耗时', '渠道', '路径', 'API 密钥', '模型'].includes(label)),
+        ...rawFields.filter(([label]) => !['时间', '结果', '错误摘要', '总耗时', '渠道', '路径', 'API 密钥', '模型'].includes(label)),
+      ]
+    : rawFields;
+  for (const [label, rawValue, tier] of ordered) {
+    if (!isError && label === '错误摘要' && rawValue === '未知') continue;
+    const value = label === 'API 密钥' && rawValue !== '未知' && rawValue !== '模型测试'
+      ? callerName(rawValue)
+      : rawValue;
     const term = document.createElement('dt');
     term.textContent = label;
     const description = document.createElement('dd');
     description.textContent = value;
     if (tier) description.classList.add(`latency-${tier}`);
+    if (value === '未知') description.classList.add('detail-unknown');
+    if (label === '结果') {
+      description.classList.add(value === '成功' ? 'detail-status-ok' : value === '客户端断开' ? 'detail-status-warn' : 'detail-status-error');
+    } else if (label === '错误摘要' && isError && value !== '未知') {
+      term.classList.add('detail-error-term');
+      description.classList.add('detail-error-box');
+    } else if ((label === '采购真实成本' || label === '单笔预估成本') && value !== '未知') {
+      description.classList.add('detail-money');
+    }
     list.append(term, description);
   }
   $('#request-detail-subtitle').textContent = `${log.channelName || '未知渠道'} · ${log.model || '未知模型'}`;
@@ -3201,12 +3222,12 @@ function motionReduced() {
   return Boolean(reducedMotionQuery?.matches) || document.documentElement.dataset.motion === 'reduce';
 }
 
-// 金融级双阶小数排版：保留 2 位主显金额，第 3 位起降阶弱化；不改变 textContent 原值。
+// 概览大额汇总（≥ 1 元）双阶小数排版：保留 2 位主显金额，第 3 位起降阶弱化；小于 1 元的小额保持全亮展示，不改变 textContent 原值。
 function applyMoneySplit(element) {
   if (!element || element.classList?.contains('is-unpriced')) return;
   if (element.querySelector?.('.unpriced-tag')) return;
   const text = element.textContent || '';
-  const match = /^(.*?\.\d{2})(\d+)$/.exec(text);
+  const match = /^(.*?[1-9][\d,]*\.\d{2})(\d+)$/.exec(text);
   if (!match || typeof document?.createElement !== 'function') return;
   const frac = document.createElement('span');
   frac.className = 'money-frac';

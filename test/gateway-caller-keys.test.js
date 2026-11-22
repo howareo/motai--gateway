@@ -205,7 +205,11 @@ test('neither responses nor logs outside the key endpoint carry a key, and the c
   }
   assert.equal(everything.includes('token_hmac'), false);
   const config = await config$();
-  for (const caller of config.callers) assert.deepEqual(Object.keys(caller).filter((name) => !['id', 'name', 'enabled', 'subjectEnabled', 'expiresAt', 'allowedIps', 'permissions'].includes(name)), ['keyStored']);
+  for (const caller of config.callers) {
+    assert.deepEqual(Object.keys(caller).filter((name) => !['id', 'name', 'enabled', 'subjectEnabled', 'expiresAt', 'allowedIps', 'permissions'].includes(name)), ['keyStored', 'keyMasked']);
+    if (caller.keyStored) assert.match(caller.keyMasked, /^sk-[^.]+\.\.\..{4}$/);
+    else assert.equal(caller.keyMasked, null);
+  }
   // The gateway configuration directory is untouched by the vault: no key text or vault file in it.
   for (const name of await readdir(path.join(directory, 'gateway'))) {
     const content = await readFile(path.join(directory, 'gateway', name), 'utf8');

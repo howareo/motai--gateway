@@ -128,6 +128,22 @@
         "relay/channel/claude TestClaudeCacheOnlyDeltaPreservesReportedUsage",
         "relay/channel/claude TestBuildMessageDeltaPatchUsage and TestBuildOpenAIStyleUsageFromClaudeUsage"
       ]
+    },
+    {
+      "id": "0008-gemini-responses-tools",
+      "path": "gateway/patches/0008-motai-gemini-responses-tools.patch",
+      "sha256": "af7e0179291ef5833f4ba8b2001aab42868d42bdedc5ec2bbfe378a26291bccc",
+      "purpose": "Adapt Gemini Responses namespace and custom tools with stable reversible names",
+      "source": "Local Codex Gemini Responses reproduction, 2026-11-23",
+      "owner": "motai",
+      "decision": "carried",
+      "reason": "Gemini upstream interpreted namespace as a callable tool and did not complete custom tool requests",
+      "touched_files": [
+        "relay/channel/openai/adaptor.go"
+      ],
+      "acceptance": [
+        "relay/channel/openai TestMotaiGeminiResponses"
+      ]
     }
   ]
 }

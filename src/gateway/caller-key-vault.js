@@ -20,6 +20,15 @@ function sameHex(left, right) {
   return a.length > 0 && a.length === b.length && timingSafeEqual(a, b);
 }
 
+export function maskCallerToken(token) {
+  if (typeof token !== 'string' || !token) return null;
+  if (token.length <= 12) return `${token.slice(0, 4)}...`;
+  if (token.startsWith('sk-motai-') && token.length > 16) {
+    return `${token.slice(0, 12)}...${token.slice(-4)}`;
+  }
+  return `${token.slice(0, 6)}...${token.slice(-4)}`;
+}
+
 // Encrypted store of the plain caller keys, so the console can show them again (same trade-off as New API).
 // The gateway never reads this file: it only authenticates against token_hmac in the published config.
 export class CallerKeyVault {
@@ -134,10 +143,17 @@ export class CallerKeyVault {
 
   // Caller ids that have a stored key matching their current hashes. One file read for the whole config.
   async storedCallerIds(hashesByCaller) {
-    if (!this.available) return new Set();
-    const callers = await this.#read(), result = new Set();
+    return new Set((await this.storedCallerMasks(hashesByCaller)).keys());
+  }
+
+  // Map of callerId -> masked key preview (e.g. sk-6f4...1a82) for callers whose stored key matches current hashes.
+  async storedCallerMasks(hashesByCaller) {
+    const result = new Map();
+    if (!this.available) return result;
+    const callers = await this.#read();
     for (const [callerId, hashes] of hashesByCaller) {
-      if (this.#tokens(callers.get(callerId)).some((token) => this.#matches(token, hashes))) result.add(callerId);
+      const matched = this.#tokens(callers.get(callerId)).find((token) => this.#matches(token, hashes));
+      if (matched) result.set(callerId, maskCallerToken(matched));
     }
     return result;
   }
