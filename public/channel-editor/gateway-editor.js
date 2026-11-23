@@ -1,6 +1,6 @@
 import { createGatewaySession } from './gateway-session.js';
-import { mountModelPicker } from './model-picker.js';
-import { modelVendorId } from './state.js';
+import { mountFetchModelsDialog } from './model-picker.js';
+import { modelVendorId, setSelectedModels } from './state.js';
 
 export function openGatewayEditor({ dialog, template, config, channel, api, onSaved, notify = () => {}, trigger, tab = 'basic', mountBilling, onSession = () => {}, created = false }) {
   dialog.replaceChildren(template.content.cloneNode(true));
@@ -10,7 +10,7 @@ export function openGatewayEditor({ dialog, template, config, channel, api, onSa
   let session;
   let initial = true;
   let previousSaveStatus;
-  let latestConfig, createdChannelId, previousSelected, previousDiscovered, previousTestModel, previousProtocol, previousVendor;
+  let latestConfig, createdChannelId, previousSelected, previousTestModel, previousProtocol, previousVendor;
   const setActiveNav = (value) => {
     for (const button of dialog.querySelectorAll('[data-editor-jump]')) {
       const active = button.dataset.editorJump === value;
@@ -103,11 +103,11 @@ export function openGatewayEditor({ dialog, template, config, channel, api, onSa
     if (!initial) {
       if (document.activeElement !== $('[name="modelsText"]')) $('[name="modelsText"]').value = draft.selected.join(', ');
       if (selectionChanged || draft.testModel !== previousTestModel) renderTestModels();
-      if (selectionChanged || draft.discovered !== previousDiscovered) picker.render();
+      fetchDialog.refresh();
     }
     if (previousTestModel && !draft.selected.includes(previousTestModel)) $('[data-editor-probe-note]').textContent = '原探活模型已移除，已回到首个已选模型。';
     else if (draft.testModel) $('[data-editor-probe-note]').textContent = '';
-    previousSelected = draft.selected; previousDiscovered = draft.discovered; previousTestModel = draft.testModel;
+    previousSelected = draft.selected; previousTestModel = draft.testModel;
     previousProtocol = draft.protocol; previousVendor = draft.vendor;
     if (draft.saveStatus === 'active' && previousSaveStatus !== 'active') $('[data-editor-result]').focus({ preventScroll: true });
     previousSaveStatus = draft.saveStatus;
@@ -117,7 +117,12 @@ export function openGatewayEditor({ dialog, template, config, channel, api, onSa
     const savedConfig = await onSaved?.(result);
     latestConfig = result.config || savedConfig || latestConfig;
   } });
-  const picker = mountModelPicker($('[data-editor-picker]'), { getDraft: () => session.draft, setDraft: (next) => session.replaceDraft(next) });
+  const fetchDialog = mountFetchModelsDialog({
+    host: dialog, getDraft: () => session.draft, vendors,
+    channelName: () => session.draft.name || channel?.name || '新渠道',
+    discover: () => session.discover(),
+    onConfirm: (selected) => session.replaceDraft(setSelectedModels(session.draft, selected))
+  });
   $('[data-editor-title]').textContent = channel ? `编辑 ${channel.name}${created ? ' · 已保存（停用）' : ''}` : '新增渠道';
   $('[data-editor-summary]').textContent = channel ? '修改草稿，保存前核对实际变更。' : '在这一页完成连接、模型与探活设置。新渠道保存后保持停用。';
   if (created) {
@@ -157,9 +162,12 @@ export function openGatewayEditor({ dialog, template, config, channel, api, onSa
     if (window.confirm(`确认将此渠道已保存的凭据发送到当前上游 ${session.draft.baseUrl}？`)) session.credential('keep', '', true);
   });
   $('[name="modelsText"]').addEventListener('input', (event) => session.select(event.target.value));
-  $('[data-editor-fetch]').addEventListener('click', () => session.discover());
+  $('[data-editor-fetch]').addEventListener('click', () => {
+    if (session.discoveryBlock) session.discover();
+    else fetchDialog.open();
+  });
   $('[data-editor-reconcile]').addEventListener('click', async () => { await session.reconcile(); await settle(); });
-  const dismiss = () => { session.close(); $('[name="credentialValue"]').value = ''; dialog.close(); };
+  const dismiss = () => { fetchDialog.close(); session.close(); $('[name="credentialValue"]').value = ''; dialog.close(); };
   // 新建生效后用服务端返回的 ID 续编；pending/unknown 不创建第二个渠道。
   const settle = async () => {
     const { closed, saveStatus, result } = session.draft;
@@ -169,7 +177,7 @@ export function openGatewayEditor({ dialog, template, config, channel, api, onSa
         const savedConfig = latestConfig || (await api('/api/gateway/config')).config;
         const savedChannel = savedConfig.channels.find((item) => item.id === createdChannelId);
         if (!savedChannel) throw new Error('渠道已保存，但配置尚未就绪，请刷新后继续设置。');
-        session.close(); $('[name="credentialValue"]').value = '';
+        fetchDialog.close(); session.close(); $('[name="credentialValue"]').value = '';
         openGatewayEditor({ dialog, template, config: savedConfig, channel: savedChannel, api, onSaved, notify, trigger,
           tab: 'billing', mountBilling, onSession, created: true });
       } catch (error) {
@@ -189,7 +197,7 @@ export function openGatewayEditor({ dialog, template, config, channel, api, onSa
   };
   for (const button of dialog.querySelectorAll('[data-editor-close]')) button.addEventListener('click', close);
   dialog.oncancel = (event) => { event.preventDefault(); close(); };
-  dialog.onclose = () => { session.close(); dialog.replaceChildren(); if (trigger?.isConnected) trigger.focus(); };
+  dialog.onclose = () => { fetchDialog.close(); session.close(); dialog.replaceChildren(); if (trigger?.isConnected) trigger.focus(); };
   for (const button of dialog.querySelectorAll('[data-editor-jump]')) button.addEventListener('click', () => showSection(button.dataset.editorJump));
   form.addEventListener('keydown', (event) => {
     if (event.key === 'Enter' && !event.isComposing && event.target.tagName === 'INPUT') event.preventDefault();

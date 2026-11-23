@@ -151,20 +151,28 @@ test('gateway DOM: target confirmation and destructive credential action require
   assert.equal(prevented, true); assert.equal(ui.session.draft.closed, true);
 });
 
-test('gateway DOM: inline catalog uses 50-row pages and selection updates the same draft without confirmation', async () => {
+test('gateway DOM: upstream catalog opens in a dialog and updates the draft only after confirmation', async () => {
   const ui = setup({ api: async () => ({ models: Array.from({ length: 120 }, (_, index) => ({ id: `Model/${index}`, capabilities: ['responses'] })), observedAt: 'now' }) });
-  const picker = ui.$('[data-editor-picker]');
-  assert.ok(picker);
+  assert.equal(ui.$('[data-editor-picker]'), null);
   await ui.$('[data-editor-fetch]').dispatch('click');
+  await new Promise((resolve) => setImmediate(resolve));
   assert.deepEqual(ui.session.draft.selected, ['Model/A']);
-  assert.equal(ui.dialog.querySelector('dialog'), null);
-  const boxes = () => picker.querySelectorAll('input').filter((node) => node.type === 'checkbox');
-  assert.equal(boxes().length, 50);
-  const search = picker.querySelector('input'); search.value = 'Model/119'; await search.dispatch('input');
-  const checkbox = boxes()[0]; checkbox.checked = true; await checkbox.dispatch('change');
+  const picker = ui.dialog.querySelector('dialog');
+  assert.equal(picker.open, true);
+  assert.equal(picker.querySelectorAll('[data-fetch-model]').length, 120);
+  const body = picker.querySelector('[role="tabpanel"]'), queryAll = body.querySelectorAll.bind(body);
+  body.querySelectorAll = (selector) => {
+    const nodes = queryAll(selector);
+    return { ...nodes, length: nodes.length, [Symbol.iterator]: () => nodes[Symbol.iterator]() };
+  };
+  const search = picker.querySelector('[data-fetch-search]'); search.value = 'Model/119'; await search.dispatch('input');
+  const checkbox = picker.querySelector('[data-fetch-model]'); checkbox.focus(); checkbox.checked = true; await checkbox.dispatch('change');
+  assert.equal(ui.document.activeElement.getAttribute('data-fetch-model'), 'Model/119', 'selection keeps focus with a browser NodeList');
+  assert.deepEqual(ui.session.draft.selected, ['Model/A']);
+  await picker.querySelector('[data-fetch-confirm]').dispatch('click');
+  assert.equal(picker.open, false);
   assert.deepEqual(ui.session.draft.selected, ['Model/A', 'Model/119']);
   assert.ok(ui.$('[name="testModel"]').children.some((node) => node.value === 'Model/119'));
-  assert.equal(ui.document.activeElement.value, 'Model/119');
 });
 
 test('gateway DOM: protocol changes refresh visible model capabilities and unknown vendor guidance', async () => {

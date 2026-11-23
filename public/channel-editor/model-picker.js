@@ -171,7 +171,7 @@ export function mountFetchModelsDialog({ host, getDraft, vendors = new Map(), ch
       body.append(section);
     }
     body.scrollTop = scroll;
-    if (focusKey) body.querySelectorAll('[data-fetch-focus]').find((node) => node.getAttribute('data-fetch-focus') === focusKey)?.focus();
+    if (focusKey) [...body.querySelectorAll('[data-fetch-focus]')].find((node) => node.getAttribute('data-fetch-focus') === focusKey)?.focus();
   }
 
   function close() { if (dialog.open) dialog.close(); }
